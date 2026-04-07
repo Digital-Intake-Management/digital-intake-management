@@ -1,0 +1,193 @@
+// This is your Prisma schema file.
+// Run `npm run db:generate` after any changes to this file.
+// Run `npm run db:migrate` to apply changes to your database.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// USERS (Counselors & Admins)
+// ─────────────────────────────────────────────
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(COUNSELOR)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  intakeSessions IntakeSession[]
+  patientIds     PatientId[]     @relation("CreatedBy")
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  COUNSELOR
+  ADMIN
+}
+
+// ─────────────────────────────────────────────
+// PATIENT IDs
+// Per spec: NO demographics stored here.
+// Only the ID itself — demographics live in MethaSoft and on PDFs.
+// ─────────────────────────────────────────────
+model PatientId {
+  id              String   @id @default(cuid())
+  patientIdString String   @unique @map("patient_id_string") // e.g. "PT-12345"
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  // Relations
+  createdBy      User            @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  intakeSessions IntakeSession[]
+
+  @@map("patient_ids")
+}
+
+// ─────────────────────────────────────────────
+// INTAKE SESSIONS
+// One session per patient per intake event.
+// Prevents duplicate active sessions per patient (enforced at app level too).
+// ─────────────────────────────────────────────
+model IntakeSession {
+  id                  String        @id @default(cuid())
+  sessionCode         String        @unique @map("session_code") // e.g. "intake-001"
+  patientIdString     String        @map("patient_id_string")
+  counselorId         String        @map("counselor_id")
+  status              SessionStatus @default(NOT_STARTED)
+  methasoftLinkedAt   DateTime?     @map("methasoft_linked_at")
+  pdfExportPath       String?       @map("pdf_export_path") // SharePoint path after export
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  completedAt         DateTime?     @map("completed_at")
+
+  // Relations
+  patient      PatientId      @relation(fields: [patientIdString], references: [patientIdString])
+  counselor    User           @relation(fields: [counselorId], references: [id])
+  sessionForms SessionForm[]
+  auditLogs    AuditLog[]
+
+  @@map("intake_sessions")
+}
+
+enum SessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  LINKED_IN_METHASOFT
+}
+
+// ─────────────────────────────────────────────
+// FORM TEMPLATES (Admin-configurable)
+// Admins can add/edit/deactivate form types.
+// Field definitions stored as JSON for flexibility.
+// ─────────────────────────────────────────────
+model FormTemplate {
+  id               String   @id @default(cuid())
+  name             String   // e.g. "Assessment Disclosure"
+  slug             String   @unique // e.g. "assessment-disclosure"
+  description      String?
+  fieldDefinitions Json     @map("field_definitions") // Array of field configs
+  isActive         Boolean  @default(true) @map("is_active")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  sessionForms SessionForm[]
+
+  @@map("form_templates")
+}
+
+// ─────────────────────────────────────────────
+// SESSION FORMS
+// Which forms belong to which session, and their completion status.
+// ─────────────────────────────────────────────
+model SessionForm {
+  id             String     @id @default(cuid())
+  sessionId      String     @map("session_id")
+  formTemplateId String     @map("form_template_id")
+  status         FormStatus @default(NOT_STARTED)
+  startedAt      DateTime?  @map("started_at")
+  completedAt    DateTime?  @map("completed_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  session      IntakeSession    @relation(fields: [sessionId], references: [id])
+  formTemplate FormTemplate     @relation(fields: [formTemplateId], references: [id])
+  fieldValues  FormFieldValue[]
+
+  @@unique([sessionId, formTemplateId]) // A form appears only once per session
+  @@map("session_forms")
+}
+
+enum FormStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ─────────────────────────────────────────────
+// FORM FIELD VALUES
+// Temporary storage of form answers.
+// Per spec: deleted after MethaSoft linking is confirmed.
+// ─────────────────────────────────────────────
+model FormFieldValue {
+  id            String   @id @default(cuid())
+  sessionFormId String   @map("session_form_id")
+  fieldKey      String   @map("field_key")
+  fieldValue    String   @map("field_value") // All stored as strings; typed at app layer
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  sessionForm SessionForm @relation(fields: [sessionFormId], references: [id])
+
+  @@unique([sessionFormId, fieldKey])
+  @@map("form_field_values")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOGS
+// Immutable record of all significant actions.
+// Per spec: written at completion, never modified or deleted.
+// ─────────────────────────────────────────────
+model AuditLog {
+  id            String   @id @default(cuid())
+  sessionId     String?  @map("session_id")
+  action        String   // e.g. "SESSION_CREATED", "PDF_EXPORTED", "METHASOFT_LINKED"
+  performedById String   @map("performed_by_id")
+  metadata      Json?    // Any extra context (form name, export path, etc.)
+  timestamp     DateTime @default(now())
+
+  // Relations
+  session     IntakeSession? @relation(fields: [sessionId], references: [id])
+  performedBy User           @relation(fields: [performedById], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// SYSTEM CONFIG (Admin-managed)
+// SharePoint folder path, report email, etc.
+// ─────────────────────────────────────────────
+model SystemConfig {
+  id          String   @id @default(cuid())
+  configKey   String   @unique @map("config_key")
+  configValue String   @map("config_value")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}

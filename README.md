@@ -1,258 +1,362 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
-<a id="readme-top"></a>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
-
-
-
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
-
-
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/github_username/repo_name">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a>
-
-<h3 align="center">project_title</h3>
-
-  <p align="center">
-    project_description
-    <br />
-    <a href="https://github.com/github_username/repo_name"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/github_username/repo_name">View Demo</a>
-    ·
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
-    ·
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
-  </p>
-</div>
-
-
-
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
+# CareLink of Georgia — Digital Intake Management Platform
 
+CS 4850 Senior Capstone | Spring 2026 | Team 28-T2  
+**Sponsor:** CareLink of Georgia  
+**Advisor:** Sharon Perry
 
+---
 
-<!-- ABOUT THE PROJECT -->
-## About The Project
+## Team & Ownership
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+| Name | Role | Owns |
+|---|---|---|
+| Anthony Tran | Team Lead / Developer | Backend architecture, API routes, PDF service, auth |
+| Dennise Gonzalez | Developer | Frontend pages (intake workflow, form completion) |
+| Success Ogunniwa | Tester | Backend testing, admin routes, reports |
+| Mekdilawit (Meya) Asefa | Frontend / Docs | Frontend pages (dashboard, admin), component library |
+| Sydney Forbes | Backend / Docs | Auth routes, patient routes, API docs |
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `project_title`, `project_description`
+---
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+## What This App Does
 
+CareLink of Georgia currently handles patient intake paperwork manually (paper → scan → upload to MethaSoft). This platform replaces that workflow with a web application where counselors and patients fill out and sign forms digitally, which are then exported as PDFs and stored in a secure SharePoint folder. The counselor then manually links the documents in MethaSoft's Document Manager.
 
+**The app does NOT replace MethaSoft.** It sits alongside it.
 
-### Built With
+---
 
-* [![Next][Next.js]][Next-url]
-* [![React][React.js]][React-url]
-* [![Vue][Vue.js]][Vue-url]
-* [![Angular][Angular.io]][Angular-url]
-* [![Svelte][Svelte.dev]][Svelte-url]
-* [![Laravel][Laravel.com]][Laravel-url]
-* [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-* [![JQuery][JQuery.com]][JQuery-url]
+## Tech Stack
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+| Layer | Technology | Why |
+|---|---|---|
+| Frontend | React 18 + TypeScript + Vite | Fast, type-safe, matches prototype |
+| Styling | Tailwind CSS | Utility-first, matches CareLink color scheme |
+| Routing | React Router v6 | Industry standard |
+| Forms | react-hook-form | Validation + performance |
+| Charts | Recharts | Admin dashboard weekly activity chart |
+| PDF generation | pdf-lib | Flatten form fields + signatures into PDF |
+| Signatures | signature_pad | Canvas-based touch/mouse signature capture |
+| Backend | Node.js + Express + TypeScript | Team familiar, consistent with frontend |
+| Database | PostgreSQL + Prisma ORM | Relational, type-safe, great tooling |
+| Auth | JWT (jsonwebtoken) | Stateless, simple shift-based sessions |
+| Email | Nodemailer + node-cron | Weekly reports, no paid API needed |
+| Validation | Zod | Runtime type validation on all API inputs |
 
+---
 
+## Prerequisites
 
-<!-- GETTING STARTED -->
-## Getting Started
+Before you can run this project, install:
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+1. **Node.js v20+** — https://nodejs.org  
+   Verify: `node --version` should show `v20.x.x` or higher
 
-### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-
-### Installation
-
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-   ```sh
-   git clone https://github.com/github_username/repo_name.git
-   ```
-3. Install NPM packages
-   ```sh
-   npm install
-   ```
-4. Enter your API in `config.js`
-   ```js
-   const API_KEY = 'ENTER YOUR API';
-   ```
-5. Change git remote url to avoid accidental pushes to base project
-   ```sh
-   git remote set-url origin github_username/repo_name
-   git remote -v # confirm the changes
-   ```
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
-
-See the [open issues](https://github.com/github_username/repo_name/issues) for a full list of proposed features (and known issues).
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTRIBUTING -->
-## Contributing
-
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-### Top contributors:
-
-<a href="https://github.com/github_username/repo_name/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=github_username/repo_name" alt="contrib.rocks image" />
-</a>
-
-
-
-<!-- LICENSE -->
-## License
-
-Distributed under the MIT License. See `LICENSE.txt` for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email_client.com
-
-Project Link: [https://github.com/github_username/repo_name](https://github.com/github_username/repo_name)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* []()
-* []()
-* []()
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/github_username/repo_name.svg?style=for-the-badge
-[contributors-url]: https://github.com/github_username/repo_name/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/github_username/repo_name.svg?style=for-the-badge
-[forks-url]: https://github.com/github_username/repo_name/network/members
-[stars-shield]: https://img.shields.io/github/stars/github_username/repo_name.svg?style=for-the-badge
-[stars-url]: https://github.com/github_username/repo_name/stargazers
-[issues-shield]: https://img.shields.io/github/issues/github_username/repo_name.svg?style=for-the-badge
-[issues-url]: https://github.com/github_username/repo_name/issues
-[license-shield]: https://img.shields.io/github/license/github_username/repo_name.svg?style=for-the-badge
-[license-url]: https://github.com/github_username/repo_name/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/linkedin_username
-[product-screenshot]: images/screenshot.png
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
-[Vue-url]: https://vuejs.org/
-[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
-[Angular-url]: https://angular.io/
-[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
-[Svelte-url]: https://svelte.dev/
-[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
-[Laravel-url]: https://laravel.com
-[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
-[Bootstrap-url]: https://getbootstrap.com
-[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
-[JQuery-url]: https://jquery.com 
+2. **PostgreSQL** — https://www.postgresql.org/download  
+   Or use [Postgres.app](https://postgresapp.com/) on Mac  
+   Verify: `psql --version`
+
+3. **Git** — https://git-scm.com  
+   Verify: `git --version`
+
+---
+
+## Getting Started (First Time Setup)
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/YOUR_ORG/carelink-digital-platform.git
+cd carelink-digital-platform
+```
+
+### 2. Create the database
+
+Open your terminal and run:
+```bash
+psql -U postgres
+```
+Then inside psql:
+```sql
+CREATE DATABASE carelink_db;
+\q
+```
+
+### 3. Set up environment variables
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Open `backend/.env` and fill in:
+```
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/carelink_db
+JWT_SECRET=paste_a_long_random_string_here
+```
+
+To generate a secure JWT secret, run:
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+### 4. Install all dependencies
+
+From the **root** of the project:
+```bash
+npm install
+```
+
+### 5. Set up the database schema and seed data
+
+```bash
+cd backend
+npm run db:migrate    # Creates all tables
+npm run db:generate   # Generates the Prisma client
+npm run db:seed       # Seeds admin user + 6 default form templates
+```
+
+You should see:
+```
+✅ Admin user created: admin
+✅ Counselor user created: counselor1
+✅ Form template: Assessment Disclosure
+... (6 forms)
+✅ System config seeded
+
+Default credentials:
+  Admin     → username: admin       / password: admin123
+  Counselor → username: counselor1  / password: counselor123
+```
+
+### 6. Run the app
+
+From the **root** of the project:
+```bash
+npm run dev
+```
+
+This starts both servers simultaneously:
+- **Frontend:** http://localhost:5173
+- **Backend:**  http://localhost:3001
+- **Health check:** http://localhost:3001/health
+
+---
+
+## Project Structure
+
+```
+carelink-digital-platform/
+├── frontend/                     # React + TypeScript + Vite
+│   └── src/
+│       ├── components/
+│       │   ├── common/           # ProtectedRoute
+│       │   ├── forms/            # SignaturePad, FormField (TODO)
+│       │   └── layout/           # AppLayout (sidebar + topbar)
+│       ├── hooks/
+│       │   └── useAuth.tsx       # Auth context + login/logout
+│       ├── pages/                # One file per screen (see routes below)
+│       ├── services/
+│       │   └── api.ts            # Axios instance + typed API helpers
+│       ├── styles/
+│       │   └── globals.css       # Tailwind + reusable component classes
+│       ├── types/
+│       │   └── index.ts          # All shared TypeScript interfaces
+│       └── App.tsx               # Route definitions
+│
+├── backend/                      # Node.js + Express + TypeScript
+│   ├── prisma/
+│   │   ├── schema.prisma         # DATABASE SCHEMA — source of truth
+│   │   └── seed.ts               # Seeds admin user + form templates
+│   └── src/
+│       ├── app.ts                # Express entry point
+│       ├── config/
+│       │   └── database.ts       # Prisma singleton
+│       ├── middleware/
+│       │   ├── authenticate.ts   # JWT verification
+│       │   ├── requireAdmin.ts   # Admin-only routes
+│       │   ├── validate.ts       # Zod schema validation
+│       │   ├── errorHandler.ts   # Global error handler
+│       │   └── requestLogger.ts  # Request logging
+│       ├── routes/
+│       │   ├── auth.ts           # POST /api/auth/login
+│       │   ├── patients.ts       # Patient ID CRUD
+│       │   ├── sessions.ts       # Intake session lifecycle
+│       │   ├── forms.ts          # Form template read
+│       │   ├── admin.ts          # Admin-only operations
+│       │   └── reports.ts        # Weekly report generation
+│       └── services/
+│           └── reportScheduler.ts # Cron job — weekly email report
+│
+└── docs/                         # Mekdilawit + Sydney own this
+```
+
+---
+
+## API Contract
+
+These are the API endpoints the frontend calls. The backend team builds these; the frontend team consumes them. **Both sides agreed on this contract before building.**
+
+| Method | Endpoint | Who calls it | What it does |
+|---|---|---|---|
+| POST | `/api/auth/login` | LoginPage | Returns JWT token |
+| GET | `/api/patients/:id` | PatientVerificationPage | Verify patient ID exists |
+| POST | `/api/patients` | PatientVerificationPage | Create new patient ID |
+| GET | `/api/patients` | AdminPatientsPage | List all patients (admin) |
+| DELETE | `/api/patients/:id` | AdminPatientsPage | Delete patient ID (admin) |
+| GET | `/api/sessions` | DashboardPage | List all sessions |
+| GET | `/api/sessions/:id` | IntakeWorkflowPage | Get session + forms |
+| POST | `/api/sessions` | PatientConfirmPage | Create new session |
+| PATCH | `/api/sessions/:id/forms/:formId/fields` | FormCompletionPage | Auto-save form fields |
+| PATCH | `/api/sessions/:id/forms/:formId/complete` | FormCompletionPage | Mark form complete |
+| POST | `/api/sessions/:id/export` | DocumentExportPage | Record PDF export |
+| POST | `/api/sessions/:id/confirm-methasoft` | MethaSoftLinkPage | Complete session |
+| GET | `/api/forms` | PatientConfirmPage | List form templates |
+| GET | `/api/admin/stats` | AdminDashboardPage | Weekly chart data |
+| GET | `/api/admin/config` | AdminSettingsPage | Get system config |
+| PATCH | `/api/admin/config/:key` | AdminSettingsPage | Update config value |
+| POST | `/api/admin/forms` | AdminFormsPage | Create form template |
+| PATCH | `/api/admin/forms/:id` | AdminFormsPage | Edit form template |
+| DELETE | `/api/admin/forms/:id` | AdminFormsPage | Deactivate form template |
+| GET | `/api/reports/weekly` | AdminDashboardPage | Weekly report JSON |
+| GET | `/api/reports/weekly/csv` | AdminDashboardPage | Download CSV |
+
+---
+
+## Page → Route Map
+
+| Screen (from prototype) | Route | Owner |
+|---|---|---|
+| Login | `/login` | Meya / Dennise |
+| Counselor Dashboard | `/dashboard` | Dennise / Meya |
+| Patient ID Verification | `/intake/new` | Dennise / Meya |
+| Patient Confirm | `/intake/new/confirm` | Dennise / Meya |
+| Intake Workflow (step tracker) | `/intake/:sessionId` | Dennise / Meya |
+| Form Selection | `/intake/:sessionId/forms` | Dennise / Meya |
+| Form Completion (+ signatures) | `/intake/:sessionId/forms/:formId` | Dennise / Meya + Anthony |
+| Document Export | `/intake/:sessionId/export` | Anthony |
+| MethaSoft Link instructions | `/intake/:sessionId/methasoft` | Dennise / Meya |
+| Intake Complete summary | `/intake/:sessionId/complete` | Dennise / Meya |
+| Admin Dashboard | `/admin` | Success / Anthony |
+| Admin Patient Management | `/admin/patients` | Success / Anthony |
+| Admin Form Templates | `/admin/forms` | Success / Anthony |
+| Admin Settings | `/admin/settings` | Success / Anthony |
+
+---
+
+## Git Workflow
+
+We use GitHub with the following branch strategy:
+
+```
+main          ← production-ready code only; tagged at each milestone
+dev           ← integration branch; merge features here first
+feat/NAME     ← individual features (branch from dev)
+bugfix/NAME   ← bug fixes (branch from dev)
+hotfix/NAME   ← critical fixes to main only
+```
+
+**Day-to-day workflow:**
+```bash
+# Start a new feature
+git checkout dev
+git pull origin dev
+git checkout -b feat/your-feature-name
+
+# Work... commit often
+git add .
+git commit -m "feat: describe what you did"
+
+# Push and open a Pull Request to dev
+git push origin feat/your-feature-name
+```
+
+**Rules:**
+- Never push directly to `main` or `dev`
+- All PRs need at least one review before merging
+- Link your PR to the relevant GitHub Issue
+
+---
+
+## Key Design Decisions
+
+### No demographic storage
+Per the sponsor spec: the app stores **only the Patient ID string** (e.g. `PT-12345`). No names, DOB, gender, phone, or insurance data are stored in our database. That information lives in MethaSoft and appears only on the filled-out PDF forms.
+
+### Signatures embedded in PDFs (no separate step)
+Signature capture happens **within** each form's completion screen, not as a separate step. The `signature_pad` library captures the drawing on a canvas. When the form is submitted, `pdf-lib` flattens the canvas image directly onto the correct position on the PDF page. This matches the real-world paper form experience.
+
+### Temporary field values deleted on completion
+Per the spec: when the counselor confirms MethaSoft linking, **all form field values are deleted** from our database. The PDF in SharePoint becomes the permanent record. Our DB retains only status and immutable audit logs.
+
+### No direct MethaSoft integration
+The app does NOT connect to MethaSoft's API. The counselor manually opens MethaSoft and links the PDF file. Our app provides step-by-step instructions and requires confirmation before marking a session complete.
+
+---
+
+## Milestone Checklist
+
+### Milestone 1 — Requirements & Workflow (Done)
+- [x] Requirements document
+- [x] Intake workflow diagrams
+- [x] Form inventory and field definitions
+- [x] Database schema
+- [x] API contract defined
+- [ ] Sponsor sign-off
+
+### Milestone 2 — Core Application
+- [ ] Login + auth working end-to-end
+- [ ] Patient verification flow
+- [ ] Form selection and completion
+- [ ] Signature capture embedded in forms
+- [ ] PDF generation and SharePoint export
+- [ ] MethaSoft linking confirmation
+- [ ] Counselor dashboard with session list
+
+### Milestone 3 — Admin, Reports, Hardening
+- [ ] Admin dashboard with weekly chart
+- [ ] Admin patient management (add/delete)
+- [ ] Admin form template editor
+- [ ] Admin system settings (SharePoint path, email)
+- [ ] Weekly email report (automated + CSV download)
+- [ ] Error handling throughout
+- [ ] User documentation
+- [ ] Developer setup documentation
+- [ ] Final demo walkthrough
+
+---
+
+## Useful Commands
+
+```bash
+# Run everything (frontend + backend)
+npm run dev
+
+# Run just backend
+cd backend && npm run dev
+
+# Run just frontend
+cd frontend && npm run dev
+
+# Open Prisma Studio (visual DB browser)
+cd backend && npm run db:studio
+
+# Re-run seed (if you need to reset form templates)
+cd backend && npm run db:seed
+
+# Type-check frontend without building
+cd frontend && npm run type-check
+
+# Run backend tests
+cd backend && npm test
+```
+
+---
+
+## Questions?
+
+- **Architecture / backend:** Anthony Tran
+- **Frontend / UI:** Dennise Gonzalez, Mekdilawit Asefa  
+- **Testing:** Success Ogunniwa  
+- **Docs:** Sydney Forbes, Mekdilawit Asefa  
+- **Sponsor contact:** Ricki @ CareLink of Georgia — 678-903-5103
