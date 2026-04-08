@@ -10,18 +10,21 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "axios": "^1.6.7",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.3.1",
+    "pdf-lib": "^1.17.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0",
-    "axios": "^1.6.7",
-    "signature_pad": "^4.1.7",
-    "pdf-lib": "^1.17.1",
-    "recharts": "^2.12.0",
     "react-hook-form": "^7.51.0",
-    "date-fns": "^3.3.1",
-    "clsx": "^2.1.0"
+    "react-router-dom": "^6.22.0",
+    "recharts": "^2.12.0",
+    "signature_pad": "^4.1.7"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@types/node": "^20.19.39",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
@@ -35,8 +38,6 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.1.4",
-    "@testing-library/react": "^14.2.1",
-    "@testing-library/jest-dom": "^6.4.2",
     "vitest": "^1.3.1"
   }
 }

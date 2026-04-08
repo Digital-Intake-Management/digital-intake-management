@@ -1,0 +1,46 @@
+{
+  "hash": "cf6f14cd",
+  "configHash": "7090ee5a",
+  "lockfileHash": "be1a2449",
+  "browserHash": "22c0f660",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "6bd42267",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "fbcdec2e",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../../node_modules/recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "fcf70272",
+      "needsInterop": false
+    },
+    "react-dom/client": {
+      "src": "../../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "2cfe0d6d",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "5249a713",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-ILK2V567": {
+      "file": "chunk-ILK2V567.js"
+    },
+    "chunk-CSUKQ42B": {
+      "file": "chunk-CSUKQ42B.js"
+    }
+  }
+}
