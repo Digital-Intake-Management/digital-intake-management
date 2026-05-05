@@ -65,8 +65,8 @@ export const sessionsApi = {
     api.patch(`/sessions/${sessionId}/forms/${formId}/fields`, { fields }),
   completeForm: (sessionId: string, formId: string) =>
     api.patch(`/sessions/${sessionId}/forms/${formId}/complete`, {}),
-  recordExport: (sessionId: string, exportPath: string) =>
-    api.post(`/sessions/${sessionId}/export`, { exportPath }),
+  exportPdf: (sessionId: string, patientIdString: string, formName: string, pdfBase64: string) =>
+    api.post(`/sessions/${sessionId}/export`, { patientIdString, formName, pdfBase64 }),
   confirmMethasoft: (sessionId: string) =>
     api.post(`/sessions/${sessionId}/confirm-methasoft`, {}),
 };
@@ -83,6 +83,15 @@ export const adminApi = {
   createForm: (data: unknown) => api.post('/admin/forms', data),
   updateForm: (id: string, data: unknown) => api.patch(`/admin/forms/${id}`, data),
   deleteForm: (id: string) => api.delete(`/admin/forms/${id}`),
+  getSessions: () => api.get('/admin/sessions'),
+  deleteSession: (id: string) => api.delete(`/admin/sessions/${id}`),
+  uploadFormPdf: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('pdf', file);
+    return api.post(`/admin/forms/${id}/pdf`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export const reportsApi = {

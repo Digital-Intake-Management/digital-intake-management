@@ -1,36 +1,95 @@
 /**
  * pages/DocumentExportPage.tsx
- * Shows export success confirmation after PDF is generated and sent to SharePoint.
- * Owner: Anthony (PDF generation logic) / Dennise (UI)
+ * Generates PDFs from all completed forms and uploads them to SharePoint.
  *
- * TODO (Anthony): Trigger PDF generation here using pdf-lib.
- * The flow: all form field values + signature canvases → flatten onto PDF → upload to SharePoint path.
- * Call sessionsApi.recordExport(sessionId, exportPath) on success.
- * Then navigate to /intake/:sessionId/methasoft.
+ * Flow:
+ *   1. Fetch the session (field values already saved during form completion)
+ *   2. For each completed form, generate a PDF with pdf-lib (signatures embedded)
+ *   3. Encode PDF as base64 and POST to the backend
+ *   4. Backend writes the file to the per-patient SharePoint subfolder
+ *   5. Navigate to MethaSoft linking step
+ *
+ * Owner: Anthony (PDF logic) / Dennise (UI)
  */
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { sessionsApi } from '@/services/api';
+import { generateFormPdf } from '@/services/pdfService';
 
 export default function DocumentExportPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [isExporting, setIsExporting] = useState(false);
   const [exported, setExported] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = async () => {
     setIsExporting(true);
+    setExportError(null);
+
     try {
-      // TODO: Call PDF generation service here (Anthony)
-      // const exportPath = await pdfService.generateAndExport(sessionId);
-      const exportPath = '/secure/carelink/intake-forms/placeholder.pdf'; // remove when PDF service is ready
-      await sessionsApi.recordExport(sessionId!, exportPath);
+      // Step 1: Load the full session — field values were saved by auto-save
+      setProgress('Loading form data…');
+      const { data: session } = await sessionsApi.get(sessionId!);
+
+      const completedForms = (session.sessionForms ?? []).filter(
+        (sf: any) => sf.status === 'COMPLETED',
+      );
+
+      if (completedForms.length === 0) {
+        setExportError('No completed forms found. Please finish all required forms before exporting.');
+        return;
+      }
+
+      // Step 2 & 3: Generate and upload each form PDF
+      for (let i = 0; i < completedForms.length; i++) {
+        const sessionForm = completedForms[i];
+        const formName: string = sessionForm.formTemplate.name;
+
+        setProgress(`Generating PDF ${i + 1} of ${completedForms.length}: ${formName}…`);
+
+        // Flatten the fieldValues array into a plain object { fieldKey: value }
+        const fieldValues: Record<string, string> = {};
+        for (const fv of sessionForm.fieldValues ?? []) {
+          fieldValues[fv.fieldKey] = fv.fieldValue;
+        }
+
+        // Signature fields are any value that is a PNG data URL — detected automatically
+        const signatureDataUrls: Record<string, string> = {};
+        for (const [key, value] of Object.entries(fieldValues)) {
+          if (value?.startsWith('data:image/')) signatureDataUrls[key] = value;
+        }
+
+        // Generate the PDF — fills the real CareLink template, falls back to layout PDF
+        const pdfBytes = await generateFormPdf({
+          patientIdString: session.patientIdString,
+          sessionCode: session.sessionCode,
+          sessionForm,
+          fieldValues,
+          signatureDataUrls,
+        });
+
+        // Encode to base64 — use a loop instead of spread to avoid stack overflow
+        // on large buffers (spread with Uint8Array can exhaust the call stack)
+        let binary = '';
+        for (let b = 0; b < pdfBytes.length; b++) {
+          binary += String.fromCharCode(pdfBytes[b]);
+        }
+        const pdfBase64 = btoa(binary);
+
+        setProgress(`Uploading ${formName} to SharePoint…`);
+        await sessionsApi.exportPdf(sessionId!, session.patientIdString, formName, pdfBase64);
+      }
+
       setExported(true);
-    } catch {
-      alert('Export failed. Please try again.');
+    } catch (err: any) {
+      const message = err?.response?.data?.error ?? 'Export failed. Please try again.';
+      setExportError(message);
     } finally {
       setIsExporting(false);
+      setProgress('');
     }
   };
 
@@ -56,7 +115,9 @@ export default function DocumentExportPage() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-gray-900">Export Complete!</h2>
-            <p className="text-sm text-gray-400 mt-2">All forms have been successfully exported</p>
+            <p className="text-sm text-gray-400 mt-2">
+              All forms have been saved to the secure SharePoint folder
+            </p>
             <button
               onClick={() => navigate(`/intake/${sessionId}/methasoft`)}
               className="btn-primary mt-8"
@@ -76,12 +137,21 @@ export default function DocumentExportPage() {
             <p className="text-sm text-gray-400 mt-2 max-w-sm">
               All forms are complete. Click below to generate PDFs and save them to the secure SharePoint location.
             </p>
+
+            {exportError && (
+              <p className="mt-4 text-sm text-red-600 font-medium max-w-sm">{exportError}</p>
+            )}
+
+            {isExporting && progress && (
+              <p className="mt-4 text-sm text-gray-500 animate-pulse">{progress}</p>
+            )}
+
             <button
               onClick={handleExport}
               disabled={isExporting}
               className="btn-primary mt-8"
             >
-              {isExporting ? 'Exporting...' : 'Export All Forms'}
+              {isExporting ? 'Exporting…' : 'Export All Forms'}
             </button>
           </>
         )}
