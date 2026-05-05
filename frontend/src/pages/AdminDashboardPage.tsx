@@ -2,35 +2,35 @@
  * pages/AdminDashboardPage.tsx
  * Admin view — weekly activity chart + export report button.
  * Owner: Success / Anthony
- *
- * TODO: Fetch from GET /api/admin/stats and render the bar chart using recharts
- * matching the prototype (Forms Started vs Forms Completed by day of week).
- * Add "Export Weekly Status Report - CSV" button that calls reportsApi.downloadCsv().
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { adminApi, reportsApi } from '@/services/api';
+import type { AdminStats } from '@/types';
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<{
-    totalSessions: number;
-    activeSessions: number;
-    completedSessions: number;
-    recentSessions: { createdAt: string; status: string }[];
-  } | null>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
 
   useEffect(() => {
     adminApi.getStats().then((r) => setStats(r.data));
   }, []);
 
-  // Build chart data from recent sessions
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const chartData = days.map((day) => ({
-    day,
-    Started: Math.floor(Math.random() * 400) + 100, // TODO: replace with real data
-    Completed: Math.floor(Math.random() * 300) + 50,
-  }));
+  // Group recentSessions by day-of-week into chart data
+  const chartData = useMemo(() => {
+    return DAY_LABELS.map((day, dayIndex) => {
+      const daySessions = (stats?.recentSessions ?? []).filter(
+        (s) => new Date(s.createdAt).getDay() === dayIndex
+      );
+      return {
+        day,
+        Started: daySessions.length,
+        Completed: daySessions.filter((s) => s.status === 'LINKED_IN_METHASOFT').length,
+      };
+    });
+  }, [stats]);
 
   const handleExportCsv = async () => {
     const response = await reportsApi.downloadCsv();
@@ -45,6 +45,24 @@ export default function AdminDashboardPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+
+      {/* Stats summary */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="card text-center">
+            <p className="text-3xl font-bold text-primary">{stats.totalSessions}</p>
+            <p className="text-sm text-gray-500 mt-1">Total Sessions</p>
+          </div>
+          <div className="card text-center">
+            <p className="text-3xl font-bold text-yellow-500">{stats.activeSessions}</p>
+            <p className="text-sm text-gray-500 mt-1">Active</p>
+          </div>
+          <div className="card text-center">
+            <p className="text-3xl font-bold text-teal-500">{stats.completedSessions}</p>
+            <p className="text-sm text-gray-500 mt-1">Completed</p>
+          </div>
+        </div>
+      )}
 
       {/* Export card */}
       <div className="card">

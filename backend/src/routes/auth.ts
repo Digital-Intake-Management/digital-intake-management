@@ -10,6 +10,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { validate } from '../middleware/validate';
+import { authenticate } from '../middleware/authenticate';
 
 export const authRouter = Router();
 
@@ -55,7 +56,20 @@ authRouter.post('/login', validate(loginSchema), async (req: Request, res: Respo
 });
 
 // ── GET /api/auth/me ───────────────────────────────────────────────────────────
-authRouter.get('/me', async (req: Request, res: Response) => {
-  // TODO: Add authenticate middleware — implemented in middleware/authenticate.ts
-  res.json({ message: 'Get current user — add authenticate middleware' });
+authRouter.get('/me', authenticate, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, role: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'User not found or inactive' });
+    }
+
+    return res.json(user);
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch current user' });
+  }
 });

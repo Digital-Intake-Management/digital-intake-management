@@ -33,21 +33,22 @@ app.use(cors({
   credentials: true,
 }));
 
-// ── Rate limiting ─────────────────────────────────────────────────────────────
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many requests from this IP, please try again later.',
-});
-app.use('/api/', limiter);
+// ── Rate limiting (disabled in test environment) ──────────────────────────────
+if (process.env.NODE_ENV !== 'test') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: 'Too many requests from this IP, please try again later.',
+  });
+  app.use('/api/', limiter);
 
-// Stricter limit on auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: 'Too many login attempts, please try again later.',
-});
-app.use('/api/auth/', authLimiter);
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: 'Too many login attempts, please try again later.',
+  });
+  app.use('/api/auth/', authLimiter);
+}
 
 // ── General middleware ─────────────────────────────────────────────────────────
 app.use(compression());
@@ -76,14 +77,14 @@ app.use((_req, res) => {
 // ── Global error handler (must be last) ────────────────────────────────────────
 app.use(errorHandler);
 
-// ── Start server ───────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 CareLink backend running on http://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-
-  // Start the weekly report cron job
-  startWeeklyReportJob();
-  console.log('📅 Weekly report scheduler started');
-});
+// ── Start server (not in test environment) ────────────────────────────────────
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 CareLink backend running on http://localhost:${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    startWeeklyReportJob();
+    console.log('📅 Weekly report scheduler started');
+  });
+}
 
 export default app;
