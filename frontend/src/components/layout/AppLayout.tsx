@@ -4,7 +4,7 @@
  * Owner: Meya / Dennise
  */
 
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import clsx from 'clsx';
 
@@ -51,11 +51,16 @@ interface AppLayoutProps {
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
+
+  const handleSearch = (value: string) => {
+    setSearchParams(value ? { q: value } : {}, { replace: true });
+  };
 
   const counselorNav: NavItem[] = [
     { to: '/dashboard', label: 'Dashboard', icon: <HomeIcon /> },
     { to: '/intake/new', label: 'New Intake', icon: <ClipboardIcon /> },
-    { to: '/dashboard', label: 'Settings', icon: <SettingsIcon /> },
   ];
 
   const adminNav: NavItem[] = [
@@ -139,21 +144,32 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
           {/* Search */}
           <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2 w-64">
-            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Search for something"
+              placeholder="Patient ID or session code…"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
               className="bg-transparent text-sm text-gray-500 placeholder:text-gray-400 outline-none w-full"
             />
+            {searchQuery && (
+              <button onClick={() => handleSearch('')} className="text-gray-300 hover:text-gray-500 flex-shrink-0 text-xs leading-none">✕</button>
+            )}
           </div>
 
           {/* Icons */}
           <div className="flex items-center gap-4 ml-4">
-            <button className="text-gray-400 hover:text-gray-600 transition-colors">
-              <SettingsIcon />
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin/settings')}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="Settings"
+              >
+                <SettingsIcon />
+              </button>
+            )}
             <button className="text-gray-400 hover:text-gray-600 transition-colors relative">
               <BellIcon />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent-red rounded-full" />

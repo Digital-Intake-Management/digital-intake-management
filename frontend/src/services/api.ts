@@ -77,6 +77,7 @@ export const formsApi = {
 };
 
 export const adminApi = {
+  listForms: () => api.get('/admin/forms'),
   getStats: () => api.get('/admin/stats'),
   getConfig: () => api.get('/admin/config'),
   updateConfig: (key: string, value: string) => api.patch(`/admin/config/${key}`, { value }),

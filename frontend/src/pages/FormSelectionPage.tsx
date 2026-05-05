@@ -30,12 +30,8 @@ export default function FormSelectionPage() {
     </div>;
   }
 
-  const totalFields = session.sessionForms.reduce(
-    (sum, sf) => sum + (sf.formTemplate.fieldDefinitions as unknown[]).length, 0
-  );
-  const completedFields = session.sessionForms
-    .filter((sf) => sf.status === 'COMPLETED')
-    .reduce((sum, sf) => sum + (sf.formTemplate.fieldDefinitions as unknown[]).length, 0);
+  const completedCount = session.sessionForms.filter((sf) => sf.status === 'COMPLETED').length;
+  const totalCount = session.sessionForms.length;
 
   const getActionLabel = (sf: SessionForm) => {
     if (sf.status === 'COMPLETED') return 'Review';
@@ -66,7 +62,6 @@ export default function FormSelectionPage() {
           <thead>
             <tr className="border-b border-gray-100">
               <th className="text-left px-6 py-4 text-xs font-semibold text-primary tracking-wide">Form Name</th>
-              <th className="text-center px-6 py-4 text-xs font-semibold text-primary tracking-wide">Fields</th>
               <th className="text-center px-6 py-4 text-xs font-semibold text-primary tracking-wide">Status</th>
               <th className="px-6 py-4" />
             </tr>
@@ -75,9 +70,6 @@ export default function FormSelectionPage() {
             {session.sessionForms.map((sf) => (
               <tr key={sf.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-gray-900">{sf.formTemplate.name}</td>
-                <td className="px-6 py-4 text-center text-gray-500">
-                  {(sf.formTemplate.fieldDefinitions as unknown[]).length}
-                </td>
                 <td className="px-6 py-4 text-center">
                   <span className={clsx(
                     sf.status === 'COMPLETED' && 'badge-completed',
@@ -101,12 +93,12 @@ export default function FormSelectionPage() {
           <tfoot>
             <tr className="bg-gray-50">
               <td className="px-6 py-3 text-xs font-semibold text-primary">Total</td>
-              <td colSpan={3} className="px-6 py-3 text-right">
+              <td colSpan={2} className="px-6 py-3 text-right">
                 <span className={clsx(
                   'text-xs font-semibold',
-                  completedFields === totalFields ? 'text-green-600' : 'text-primary'
+                  completedCount === totalCount ? 'text-green-600' : 'text-primary'
                 )}>
-                  {completedFields}/{totalFields} Complete
+                  {completedCount}/{totalCount} Complete
                 </span>
               </td>
             </tr>

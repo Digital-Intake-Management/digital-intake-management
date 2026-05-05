@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { patientsApi, adminApi } from '@/services/api';
 
 interface SessionRow {
@@ -43,6 +44,16 @@ export default function AdminPatientsPage() {
   const [newId, setNewId] = useState('PT-');
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState('');
+  const [searchParams] = useSearchParams();
+  const q = (searchParams.get('q') ?? '').toLowerCase();
+  const filteredPatients = q
+    ? patients.filter((p) => p.patientIdString.toLowerCase().includes(q))
+    : patients;
+  const filteredSessions = q
+    ? sessions.filter(
+        (s) => s.patientIdString.toLowerCase().includes(q) || s.sessionCode.toLowerCase().includes(q)
+      )
+    : sessions;
 
   const load = () => {
     patientsApi.list().then((r) => setPatients(r.data));
@@ -111,6 +122,14 @@ export default function AdminPatientsPage() {
 
       {/* Patient table */}
       <div className="card overflow-hidden p-0">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gray-50">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Patient IDs</span>
+          {q && (
+            <span className="text-xs text-gray-400">
+              {filteredPatients.length} result{filteredPatients.length !== 1 ? 's' : ''} for "{q}"
+            </span>
+          )}
+        </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
@@ -122,7 +141,7 @@ export default function AdminPatientsPage() {
             </tr>
           </thead>
           <tbody>
-            {patients.map((p) => (
+            {filteredPatients.map((p) => (
               <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-6 py-3 font-semibold text-gray-900">{p.patientIdString}</td>
                 <td className="px-6 py-3 text-gray-500">{p.createdBy.username}</td>
@@ -138,10 +157,16 @@ export default function AdminPatientsPage() {
                 </td>
               </tr>
             ))}
-            {patients.length === 0 && (
+            {patients.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
                   No patient IDs yet.
+                </td>
+              </tr>
+            ) : filteredPatients.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">
+                  No patient IDs match "{q}".
                 </td>
               </tr>
             )}
@@ -150,7 +175,14 @@ export default function AdminPatientsPage() {
       </div>
 
       {/* ── Sessions panel ───────────────────────────────────────────────────── */}
-      <h2 className="text-lg font-bold text-gray-900 pt-2">Intake Sessions</h2>
+      <div className="flex items-center justify-between pt-2">
+        <h2 className="text-lg font-bold text-gray-900">Intake Sessions</h2>
+        {q && (
+          <span className="text-xs text-gray-400">
+            {filteredSessions.length} result{filteredSessions.length !== 1 ? 's' : ''} for "{q}"
+          </span>
+        )}
+      </div>
 
       <div className="card overflow-hidden p-0">
         <table className="w-full text-sm">
@@ -166,7 +198,7 @@ export default function AdminPatientsPage() {
             </tr>
           </thead>
           <tbody>
-            {sessions.map((s) => (
+            {filteredSessions.map((s) => (
               <tr key={s.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="px-6 py-3 font-semibold text-gray-900">{s.sessionCode}</td>
                 <td className="px-6 py-3 text-gray-700">{s.patientIdString}</td>
@@ -190,10 +222,16 @@ export default function AdminPatientsPage() {
                 </td>
               </tr>
             ))}
-            {sessions.length === 0 && (
+            {sessions.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-400">
                   No sessions yet.
+                </td>
+              </tr>
+            ) : filteredSessions.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-400">
+                  No sessions match "{q}".
                 </td>
               </tr>
             )}

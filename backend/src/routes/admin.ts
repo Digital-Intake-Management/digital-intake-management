@@ -38,9 +38,22 @@ const formTemplateSchema = z.object({
     label: z.string(),
     type: z.enum(['text', 'checkbox', 'radio', 'date', 'signature']),
     required: z.boolean(),
+    requiredGroup: z.string().optional(),
   })),
   isActive: z.boolean().optional(),
   sortOrder: z.number().optional(),
+});
+
+// GET /api/admin/forms — list ALL form templates including inactive ones
+adminRouter.get('/forms', async (_req: Request, res: Response) => {
+  try {
+    const forms = await prisma.formTemplate.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+    return res.json(forms);
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch form templates' });
+  }
 });
 
 // POST /api/admin/forms — create a new form template
