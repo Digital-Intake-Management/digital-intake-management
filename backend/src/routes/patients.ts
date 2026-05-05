@@ -85,8 +85,8 @@ patientsRouter.get('/:patientIdString', async (req: Request, res: Response) => {
 });
 
 // ── POST /api/patients ─────────────────────────────────────────────────────────
-// Create a new patient ID in the system
-patientsRouter.post('/', validate(patientIdSchema), async (req: Request, res: Response) => {
+// Create a new patient ID in the system (admin only)
+patientsRouter.post('/', requireAdmin, validate(patientIdSchema), async (req: Request, res: Response) => {
   try {
     const { patientIdString } = req.body;
     const userId = (req as any).user.userId;

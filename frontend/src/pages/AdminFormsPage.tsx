@@ -174,6 +174,16 @@ export default function AdminFormsPage() {
     load();
   };
 
+  const handleDeletePermanent = async (form: FormTemplate) => {
+    if (!window.confirm(`Permanently delete "${form.name}"? This cannot be undone. It will be blocked if this form has ever been used in a session.`)) return;
+    try {
+      await adminApi.deleteFormPermanent(form.id);
+      load();
+    } catch (err: unknown) {
+      alert((err as { response?: { data?: { error?: string } } }).response?.data?.error ?? 'Could not delete permanently');
+    }
+  };
+
   const openFilePicker = (formId: string) => {
     pendingFormId.current = formId;
     fileInputRef.current?.click();
@@ -330,6 +340,7 @@ export default function AdminFormsPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Form Template Management</h1>
+        <button onClick={openCreate} className="btn-primary text-sm">+ New Form</button>
       </div>
 
       <div className="card overflow-hidden p-0">
@@ -400,6 +411,12 @@ export default function AdminFormsPage() {
                         className="text-xs text-gray-400 hover:text-gray-600 font-medium"
                       >
                         {form.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePermanent(form)}
+                        className="text-xs text-red-300 hover:text-red-500 font-medium"
+                      >
+                        Delete
                       </button>
                     </div>
                   </td>

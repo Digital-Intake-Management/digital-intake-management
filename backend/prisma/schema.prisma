@@ -19,9 +19,12 @@ model User {
   username     String   @unique
   passwordHash String   @map("password_hash")
   role         UserRole @default(COUNSELOR)
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  isActive            Boolean   @default(true) @map("is_active")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  mustChangePassword  Boolean   @default(false) @map("must_change_password")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relations
   intakeSessions IntakeSession[]
@@ -30,6 +33,20 @@ model User {
   notifications  Notification[]
 
   @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// TOKEN DENYLIST
+// Holds JTIs of tokens that have been explicitly
+// logged out before their natural expiry.
+// ─────────────────────────────────────────────
+model TokenDenylist {
+  id        String   @id @default(cuid())
+  jti       String   @unique
+  expiresAt DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("token_denylist")
 }
 
 enum UserRole {

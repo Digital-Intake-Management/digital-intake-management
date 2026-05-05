@@ -33,6 +33,13 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const UsersIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
 const BellIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -127,13 +134,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     { to: '/admin', label: 'Dashboard', icon: <HomeIcon /> },
     { to: '/admin/patients', label: 'Patients', icon: <ClipboardIcon /> },
     { to: '/admin/forms', label: 'Forms', icon: <ClipboardIcon /> },
+    { to: '/admin/users', label: 'Users', icon: <UsersIcon /> },
     { to: '/admin/settings', label: 'Settings', icon: <SettingsIcon /> },
   ];
 
   const navItems = isAdmin ? adminNav : counselorNav;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -181,8 +189,18 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="px-3 pb-4">
+        {/* Bottom actions */}
+        <div className="px-3 pb-4 space-y-1">
+          <button
+            onClick={() => navigate('/change-password')}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            Change Password
+          </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"

@@ -8,20 +8,36 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import multer from 'multer';
+import bcrypt from 'bcryptjs';
+import * as XLSX from 'xlsx';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { authenticate } from '../middleware/authenticate';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { validate } from '../middleware/validate';
 import { createNotification, notifyAllCounselors } from '../services/notifications';
+import { passwordSchema } from './auth';
 
 const FORMS_DIR = path.join(process.cwd(), 'public', 'forms');
 
 const pdfUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB max
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     cb(null, file.mimetype === 'application/pdf');
+  },
+});
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max for spreadsheets
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+      'text/csv',
+    ];
+    cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith('.csv'));
   },
 });
 
@@ -85,13 +101,27 @@ adminRouter.patch('/forms/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/admin/forms/:id — deactivate a form template (soft delete)
+// DELETE /api/admin/forms/:id — deactivate (soft) or permanently delete a form template.
+// Permanent delete (?permanent=true) is only allowed if the form has never been used
+// in any session. If it has session history, the request is rejected to protect records.
 adminRouter.delete('/forms/:id', async (req: Request, res: Response) => {
   try {
+    const permanent = req.query.permanent === 'true';
     const form = await prisma.formTemplate.findUnique({ where: { id: req.params.id } });
     if (!form) return res.status(404).json({ error: 'Form template not found' });
 
-    // Find counselors with active sessions that include this form
+    if (permanent) {
+      const usageCount = await prisma.sessionForm.count({ where: { formTemplateId: req.params.id } });
+      if (usageCount > 0) {
+        return res.status(409).json({
+          error: `Cannot permanently delete "${form.name}" — it has been used in ${usageCount} session(s). Deactivate it instead to hide it from future intakes while preserving the session history.`,
+        });
+      }
+      await prisma.formTemplate.delete({ where: { id: req.params.id } });
+      return res.json({ message: 'Form template permanently deleted' });
+    }
+
+    // Soft delete — notify counselors with active sessions using this form
     const affected = await prisma.sessionForm.findMany({
       where: {
         formTemplateId: req.params.id,
@@ -119,7 +149,7 @@ adminRouter.delete('/forms/:id', async (req: Request, res: Response) => {
 
     return res.json({ message: 'Form template deactivated' });
   } catch {
-    return res.status(500).json({ error: 'Failed to deactivate form template' });
+    return res.status(500).json({ error: 'Failed to delete form template' });
   }
 });
 
@@ -132,6 +162,64 @@ adminRouter.get('/config', async (_req: Request, res: Response) => {
     return res.json(configs);
   } catch {
     return res.status(500).json({ error: 'Failed to fetch config' });
+  }
+});
+
+// POST /api/admin/patients/import — bulk-import patient IDs from an Excel or CSV file
+// Accepts both "PT-12345" and "12345" (normalises to PT-XXXXX).
+// Returns: { added, duplicates, errors } arrays so the admin can see exactly what happened.
+adminRouter.post('/patients/import', excelUpload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    // Collect every non-empty cell value from the first column, skipping a header
+    // row if it doesn't look like a patient ID.
+    const rawValues: string[] = [];
+    for (const row of rows) {
+      const cell = row[0];
+      if (cell !== undefined && cell !== null && String(cell).trim() !== '') {
+        rawValues.push(String(cell).trim());
+      }
+    }
+
+    const added: string[] = [];
+    const duplicates: string[] = [];
+    const errors: { raw: string; reason: string }[] = [];
+
+    const createdByUserId = (req as any).user.userId;
+
+    for (const raw of rawValues) {
+      // Normalise: strip whitespace, uppercase, handle "12345" → "PT-12345"
+      let normalised = raw.toUpperCase().replace(/\s+/g, '');
+      if (/^\d{5}$/.test(normalised)) normalised = `PT-${normalised}`;
+
+      // Skip obvious header rows
+      if (normalised === 'PATIENTID' || normalised === 'PATIENT ID' || normalised === 'PT-#####') {
+        continue;
+      }
+
+      if (!/^PT-\d{5}$/.test(normalised)) {
+        errors.push({ raw, reason: 'Invalid format — expected PT-##### or a 5-digit number' });
+        continue;
+      }
+
+      const existing = await prisma.patientId.findUnique({ where: { patientIdString: normalised } });
+      if (existing) {
+        duplicates.push(normalised);
+        continue;
+      }
+
+      await prisma.patientId.create({ data: { patientIdString: normalised, createdByUserId } });
+      added.push(normalised);
+    }
+
+    return res.json({ added, duplicates, errors });
+  } catch {
+    return res.status(500).json({ error: 'Failed to process file' });
   }
 });
 
@@ -194,7 +282,12 @@ adminRouter.delete('/sessions/:id', async (req: Request, res: Response) => {
 
     await prisma.formFieldValue.deleteMany({ where: { sessionFormId: { in: sessionFormIds } } });
     await prisma.sessionForm.deleteMany({ where: { sessionId: session.id } });
-    await prisma.auditLog.deleteMany({ where: { sessionId: session.id } });
+    // Preserve audit logs — null out the sessionId rather than deleting records.
+    // The immutable audit trail must survive session deletion per HIPAA requirements.
+    await prisma.auditLog.updateMany({
+      where: { sessionId: session.id },
+      data: { sessionId: null },
+    });
     await prisma.intakeSession.delete({ where: { id: session.id } });
 
     return res.json({ message: 'Session deleted' });
@@ -238,5 +331,103 @@ adminRouter.get('/stats', async (_req: Request, res: Response) => {
     return res.json({ totalSessions, activeSessions, completedSessions, recentSessions });
   } catch {
     return res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// ── User Management ────────────────────────────────────────────────────────────
+
+const createUserSchema = z.object({
+  username: z
+    .string()
+    .min(2)
+    .max(50)
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+  password: passwordSchema,
+  role: z.enum(['COUNSELOR', 'ADMIN']).default('COUNSELOR'),
+});
+
+const updateUserSchema = z.object({
+  isActive: z.boolean().optional(),
+  role: z.enum(['COUNSELOR', 'ADMIN']).optional(),
+});
+
+const USER_SELECT = {
+  id: true,
+  username: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+  _count: { select: { intakeSessions: true } },
+} as const;
+
+// GET /api/admin/users — list all users
+adminRouter.get('/users', async (_req: Request, res: Response) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'asc' },
+      select: USER_SELECT,
+    });
+    return res.json(users);
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// POST /api/admin/users — create a new counselor or admin account
+adminRouter.post('/users', validate(createUserSchema), async (req: Request, res: Response) => {
+  try {
+    const { username, password, role } = req.body;
+
+    const existing = await prisma.user.findUnique({ where: { username } });
+    if (existing) return res.status(409).json({ error: 'Username is already taken' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: { username, passwordHash, role, mustChangePassword: true },
+      select: USER_SELECT,
+    });
+    return res.status(201).json(user);
+  } catch {
+    return res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// PATCH /api/admin/users/:id — toggle active status or change role
+adminRouter.patch('/users/:id', validate(updateUserSchema), async (req: Request, res: Response) => {
+  try {
+    const { isActive, role } = req.body;
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: {
+        ...(isActive !== undefined ? { isActive } : {}),
+        ...(role ? { role } : {}),
+      },
+      select: USER_SELECT,
+    });
+    return res.json(user);
+  } catch {
+    return res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// POST /api/admin/users/:id/reset-password — generate a temp password and return it to the admin
+adminRouter.post('/users/:id/reset-password', async (req: Request, res: Response) => {
+  try {
+    // Exclude visually similar characters (0/O, 1/I/l) to reduce transcription errors
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const tempPassword = Array.from(
+      { length: 10 },
+      () => chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    await prisma.user.update({
+      where: { id: req.params.id },
+      data: { passwordHash, mustChangePassword: true },
+    });
+
+    return res.json({ tempPassword });
+  } catch {
+    return res.status(500).json({ error: 'Failed to reset password' });
   }
 });

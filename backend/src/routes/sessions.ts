@@ -139,6 +139,49 @@ sessionsRouter.post('/', validate(createSessionSchema), async (req: Request, res
   }
 });
 
+// ── POST /api/sessions/:id/forms ──────────────────────────────────────────────
+// Add additional form templates to an in-progress session.
+// Silently skips forms that are already in the session.
+sessionsRouter.post('/:id/forms', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { formTemplateIds } = req.body;
+
+    if (!Array.isArray(formTemplateIds) || formTemplateIds.length === 0) {
+      return res.status(400).json({ error: 'formTemplateIds must be a non-empty array' });
+    }
+
+    const session = await prisma.intakeSession.findUnique({
+      where: { id },
+      include: { sessionForms: { select: { formTemplateId: true } } },
+    });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (session.status === 'LINKED_IN_METHASOFT') {
+      return res.status(409).json({ error: 'Cannot add forms to a completed session' });
+    }
+
+    const existing = new Set(session.sessionForms.map((sf) => sf.formTemplateId));
+    const toAdd = (formTemplateIds as string[]).filter((id) => !existing.has(id));
+
+    if (toAdd.length === 0) {
+      return res.json({ message: 'All selected forms are already in this session', added: 0 });
+    }
+
+    await prisma.sessionForm.createMany({
+      data: toAdd.map((formTemplateId) => ({ sessionId: id, formTemplateId })),
+    });
+
+    const updated = await prisma.intakeSession.findUnique({
+      where: { id },
+      include: { sessionForms: { include: { formTemplate: true, fieldValues: true } } },
+    });
+
+    return res.json(updated);
+  } catch {
+    return res.status(500).json({ error: 'Failed to add forms to session' });
+  }
+});
+
 // ── PATCH /api/sessions/:id/forms/:formId/fields ───────────────────────────────
 // Save form field values (auto-save during session)
 sessionsRouter.patch(

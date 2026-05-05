@@ -1,10 +1,11 @@
 /**
  * components/common/ProtectedRoute.tsx
  * Redirects unauthenticated users to /login.
+ * Redirects users with mustChangePassword to /change-password before anything else.
  * Optionally restricts to a specific role.
  */
 
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
 
@@ -14,6 +15,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ requiredRole }: ProtectedRouteProps) => {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -24,6 +26,11 @@ export const ProtectedRoute = ({ requiredRole }: ProtectedRouteProps) => {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Force password change before the user can access anything else
+  if (user.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
 
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/dashboard" replace />;

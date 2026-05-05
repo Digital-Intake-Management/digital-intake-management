@@ -1,16 +1,16 @@
 /**
  * hooks/useAuth.tsx
  * Authentication context — provides login/logout and current user throughout the app.
- * Used by ProtectedRoute and any component that needs to know who is logged in.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '@/services/api';
+import { authApi } from '@/services/api';
 
 interface User {
   id: string;
   username: string;
   role: 'COUNSELOR' | 'ADMIN';
+  mustChangePassword: boolean;
 }
 
 interface AuthContextType {
@@ -18,7 +18,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  updateSession: (token: string, user: User) => void;
   isAdmin: boolean;
 }
 
@@ -29,7 +30,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session from localStorage on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('carelink_token');
     const storedUser = localStorage.getItem('carelink_user');
@@ -40,17 +40,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const response = await api.post('/auth/login', { username, password });
-    const { token: newToken, user: newUser } = response.data;
-
+  const updateSession = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('carelink_token', newToken);
     localStorage.setItem('carelink_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
   }, []);
 
-  const logout = useCallback(() => {
+  const login = useCallback(async (username: string, password: string) => {
+    const response = await authApi.login(username, password);
+    const { token: newToken, user: newUser } = response.data;
+    updateSession(newToken, newUser as User);
+  }, [updateSession]);
+
+  const logout = useCallback(async () => {
+    // Tell the server to denylist the current token before clearing locally
+    try {
+      await authApi.logout();
+    } catch {
+      // Still clear locally even if the server call fails
+    }
     localStorage.removeItem('carelink_token');
     localStorage.removeItem('carelink_user');
     setToken(null);
@@ -65,6 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading,
         login,
         logout,
+        updateSession,
         isAdmin: user?.role === 'ADMIN',
       }}
     >
