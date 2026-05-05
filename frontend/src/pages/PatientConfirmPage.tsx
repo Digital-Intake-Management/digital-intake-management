@@ -73,7 +73,7 @@ export default function PatientConfirmPage() {
         </div>
         <div className="text-right text-sm text-gray-400">
           <p className="text-xs text-gray-400">Session ID</p>
-          <p className="font-semibold text-gray-700">intake-new</p>
+          <p className="text-sm font-semibold text-gray-400">—</p>
         </div>
       </div>
 
