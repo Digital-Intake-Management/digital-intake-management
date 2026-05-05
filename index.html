@@ -4,120 +4,123 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>CareLink of Georgia</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#fafaf9;
-  --white:#ffffff;
   --blue:#2d3be0;
   --red:#dc2626;
-  --text:#111111;
+  --text:#111;
   --muted:#6b7280;
   --border:#e5e7eb;
+  --bg:#f9fafb;
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
 
 /* NAV */
 nav{
   display:flex;align-items:center;justify-content:space-between;
-  padding:20px 60px;background:white;border-bottom:1px solid var(--border);
-}
-.nav-logo{display:flex;align-items:center;gap:10px;}
-.nav-logo svg{width:32px;height:32px;}
-.nav-logo span{font-weight:600;font-size:0.95rem;}
-.nav-meta{font-size:0.78rem;color:var(--muted);text-align:right;line-height:1.6;}
-
-/* HERO */
-.hero{
-  text-align:center;
-  padding:72px 24px 56px;
+  padding:12px 40px;
   background:white;
   border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.nav-logo{display:flex;align-items:center;gap:8px;}
+.nav-logo svg{width:26px;height:26px;}
+.nav-logo span{font-weight:600;font-size:0.88rem;}
+.nav-meta{font-size:0.72rem;color:var(--muted);text-align:right;line-height:1.5;}
+
+/* MAIN LAYOUT */
+.page{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto auto;
+  gap:16px;
+  padding:16px 40px;
+  flex:1;
+  overflow:hidden;
+}
+
+/* LEFT COLUMN - hero + links */
+.left{display:flex;flex-direction:column;gap:14px;}
+
+.hero{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px 24px;
 }
 .badge{
   display:inline-block;
-  background:#f0f4ff;
+  background:#eff2ff;
   color:var(--blue);
-  font-size:0.72rem;
-  font-weight:600;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  padding:6px 14px;
-  border-radius:999px;
-  margin-bottom:20px;
+  font-size:0.65rem;font-weight:700;
+  letter-spacing:0.08em;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;margin-bottom:10px;
 }
-.hero h1{
-  font-family:'Playfair Display',serif;
-  font-size:2.8rem;
-  line-height:1.15;
-  color:var(--text);
-  max-width:600px;
-  margin:0 auto 16px;
+.hero h1{font-size:1.35rem;font-weight:700;line-height:1.25;margin-bottom:8px;}
+.hero h1 span{color:var(--blue);}
+.hero p{font-size:0.78rem;color:var(--muted);line-height:1.6;}
+
+.links{
+  display:flex;flex-direction:column;gap:8px;
 }
-.hero h1 em{font-style:normal;color:var(--blue);}
-.hero p{
-  font-size:1rem;
-  color:var(--muted);
-  max-width:520px;
-  margin:0 auto 36px;
-  line-height:1.7;
-  font-weight:300;
-}
-.hero-links{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
 a.btn{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:12px 22px;border-radius:8px;
-  font-size:0.85rem;font-weight:500;
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;border-radius:8px;
+  font-size:0.8rem;font-weight:500;
   text-decoration:none;transition:opacity .15s;
 }
 a.btn:hover{opacity:.85;}
 a.btn-primary{background:var(--blue);color:white;}
 a.btn-dark{background:#111;color:white;}
 a.btn-red{background:var(--red);color:white;}
-a.btn svg{width:16px;height:16px;flex-shrink:0;}
+a.btn svg{width:15px;height:15px;flex-shrink:0;}
 
-/* TEAM */
-.section{padding:56px 60px;max-width:1000px;margin:0 auto;}
-.section-label{
-  font-size:0.7rem;font-weight:600;letter-spacing:0.12em;
-  text-transform:uppercase;color:var(--muted);margin-bottom:32px;
+/* RIGHT COLUMN - team + stats */
+.right{display:flex;flex-direction:column;gap:14px;}
+
+.card{
+  background:white;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 20px;
 }
-.team{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;}
-.member{text-align:center;width:140px;}
+.card-label{
+  font-size:0.62rem;font-weight:700;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:12px;
+}
+
+.team{display:flex;gap:10px;justify-content:space-between;}
+.member{text-align:center;flex:1;}
 .member img{
-  width:80px;height:80px;border-radius:50%;
+  width:52px;height:52px;border-radius:50%;
   object-fit:cover;object-position:top center;
-  display:block;margin:0 auto 12px;
+  display:block;margin:0 auto 6px;
   border:2px solid var(--border);
 }
-.member .name{font-size:0.82rem;font-weight:600;color:var(--text);}
-.member .role{font-size:0.7rem;color:var(--muted);margin-top:3px;}
+.member .name{font-size:0.68rem;font-weight:600;color:var(--text);line-height:1.2;}
+.member .role{font-size:0.6rem;color:var(--muted);margin-top:2px;}
 
-/* STATS */
-.stats-row{
-  display:grid;grid-template-columns:repeat(4,1fr);
-  gap:1px;background:var(--border);
-  border:1px solid var(--border);border-radius:12px;
-  overflow:hidden;margin-top:16px;
-}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .stat{
-  background:white;padding:24px;text-align:center;
+  background:var(--bg);
+  border-radius:8px;padding:10px;text-align:center;
 }
-.stat .val{font-size:1.6rem;font-weight:600;color:var(--text);}
-.stat .lbl{font-size:0.72rem;color:var(--muted);margin-top:4px;}
+.stat .val{font-size:1.1rem;font-weight:700;color:var(--blue);}
+.stat .lbl{font-size:0.6rem;color:var(--muted);margin-top:2px;}
 .status{
-  text-align:center;margin-top:16px;
-  font-size:0.85rem;color:#16a34a;font-weight:500;
-}
-
-/* DIVIDER */
-hr{border:none;border-top:1px solid var(--border);}
-
-footer{
-  text-align:center;padding:24px;
-  font-size:0.75rem;color:var(--muted);
-  border-top:1px solid var(--border);
+  margin-top:10px;text-align:center;
+  font-size:0.75rem;color:#16a34a;font-weight:500;
 }
 </style>
 </head>
@@ -133,32 +136,36 @@ footer{
     </svg>
     <span>CareLink of Georgia</span>
   </div>
-  <div class="nav-meta">CS 4850 · Senior Capstone · Spring 2026<br/>Team 28-T2</div>
+  <div class="nav-meta">CS 4850 · Senior Capstone · Spring 2026 · Project 28-T2</div>
 </nav>
 
-<div class="hero">
-  <div class="badge">Project 28-T2</div>
-  <h1>Digital <em>Intake</em> Management Platform</h1>
-  <p>Replacing manual paper intake workflows at CareLink of Georgia with a secure, digital-first web application for counselors and patients.</p>
-  <div class="hero-links">
-    <a href="https://kennesawedu-my.sharepoint.com/:w:/r/personal/masefa_students_kennesaw_edu/Documents/Draft%20Final%20Report-P28-T2-Digital%20Intake%20Management%20Platform.docx?d=wb34d90255b164296a0d9b0c931d94839&csf=1&web=1&e=69adqh" class="btn btn-primary" target="_blank">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      Final Report
-    </a>
-    <a href="https://github.com/Digital-Intake-Management/digital-intake-management" class="btn btn-dark" target="_blank">
-      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
-      GitHub
-    </a>
-    <a href="YOUR_VIDEO_URL" class="btn btn-red" target="_blank">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      Presentation Video
-    </a>
+<div class="page">
+  <div class="left">
+    <div class="hero">
+      <div class="badge">Project 28-T2</div>
+      <h1>Digital <span>Intake</span> Management Platform</h1>
+      <p>Replacing manual paper intake workflows at CareLink of Georgia with a secure, digital-first web application for counselors and patients.</p>
+    </div>
+    <div class="links">
+      <a href="https://kennesawedu-my.sharepoint.com/:w:/r/personal/masefa_students_kennesaw_edu/Documents/Draft%20Final%20Report-P28-T2-Digital%20Intake%20Management%20Platform.docx?d=wb34d90255b164296a0d9b0c931d94839&csf=1&web=1&e=69adqh" class="btn btn-primary" target="_blank">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Final Report (PDF)
+      </a>
+      <a href="https://github.com/Digital-Intake-Management/digital-intake-management" class="btn btn-dark" target="_blank">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        GitHub Repository
+      </a>
+      <a href="YOUR_VIDEO_URL" class="btn btn-red" target="_blank">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Presentation Video
+      </a>
+    </div>
   </div>
-</div>
 
-<div class="section">
-  <p class="section-label">The Team</p>
-  <div class="team"><div class="member">
+  <div class="right">
+    <div class="card">
+      <p class="card-label">The Team</p>
+      <div class="team"><div class="member">
           <img src="data:image/png;base64,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" alt="Mekdilawit Asefa" />
           <p class="name">Mekdilawit Asefa</p>
           <p class="role">Frontend / Docs</p>
@@ -179,24 +186,19 @@ footer{
           <p class="name">Anthony Tran</p>
           <p class="role">Team Lead</p>
         </div></div>
-</div>
-
-<hr/>
-
-<div class="section">
-  <p class="section-label">Stats &amp; Status</p>
-  <div class="stats-row">
-    <div class="stat"><div class="val">~5,200</div><div class="lbl">Lines of Code</div></div>
-    <div class="stat"><div class="val">12</div><div class="lbl">Tools &amp; Components</div></div>
-    <div class="stat"><div class="val">450</div><div class="lbl">Hours Estimated</div></div>
-    <div class="stat"><div class="val">500</div><div class="lbl">Hours Actual</div></div>
+    </div>
+    <div class="card">
+      <p class="card-label">Stats &amp; Status</p>
+      <div class="stats">
+        <div class="stat"><div class="val">~5,200</div><div class="lbl">Lines of Code</div></div>
+        <div class="stat"><div class="val">12</div><div class="lbl">Tools</div></div>
+        <div class="stat"><div class="val">450</div><div class="lbl">Est. Hours</div></div>
+        <div class="stat"><div class="val">500</div><div class="lbl">Actual Hours</div></div>
+      </div>
+      <p class="status">✅ Project is 100% complete</p>
+    </div>
   </div>
-  <p class="status">✅ Project is 90% complete</p>
 </div>
-
-<footer>
-  CareLink of Georgia · Digital Intake Management Platform · CS 4850 Senior Capstone · Spring 2026 · Team 28-T2
-</footer>
 
 </body>
 </html>
