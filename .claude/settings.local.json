@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(npx jest *)",
+      "Bash(npm install *)",
+      "Bash(./node_modules/.bin/jest --forceExit)",
+      "Bash(../node_modules/.bin/jest --forceExit)",
+      "Bash(../node_modules/.bin/vitest run *)",
+      "Bash(psql -U postgres -c \"\\\\l\")"
+    ]
+  }
+}

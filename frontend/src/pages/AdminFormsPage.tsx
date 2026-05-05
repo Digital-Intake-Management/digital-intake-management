@@ -6,7 +6,33 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { formsApi, adminApi } from '@/services/api';
-import type { FormTemplate } from '@/types';
+import type { FormTemplate, FieldDefinition, FieldType } from '@/types';
+
+const FIELD_TYPES: { value: FieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'date', label: 'Date' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'radio', label: 'Radio' },
+  { value: 'signature', label: 'Signature' },
+];
+
+interface FormEditorState {
+  name: string;
+  slug: string;
+  description: string;
+  sortOrder: number;
+  fieldDefinitions: FieldDefinition[];
+}
+
+const blankField = (): FieldDefinition => ({
+  key: `field_${Date.now()}`,
+  label: '',
+  type: 'text',
+  required: false,
+});
+
+const toSlug = (name: string) =>
+  name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
 export default function AdminFormsPage() {
   const [forms, setForms] = useState<FormTemplate[]>([]);
@@ -17,6 +43,76 @@ export default function AdminFormsPage() {
 
   const load = () => formsApi.list().then((r) => setForms(r.data));
   useEffect(() => { load(); }, []);
+
+  const openCreate = () => {
+    setEditingForm(null);
+    setEditor({ name: '', slug: '', description: '', sortOrder: forms.length + 1, fieldDefinitions: [blankField()] });
+    setModalOpen(true);
+  };
+
+  const openEdit = (form: FormTemplate) => {
+    setEditingForm(form);
+    setEditor({
+      name: form.name,
+      slug: form.slug,
+      description: form.description ?? '',
+      sortOrder: form.sortOrder,
+      fieldDefinitions: (form.fieldDefinitions as FieldDefinition[]).length > 0
+        ? (form.fieldDefinitions as FieldDefinition[])
+        : [blankField()],
+    });
+    setModalOpen(true);
+  };
+
+  const closeModal = () => { setModalOpen(false); setEditingForm(null); };
+
+  const handleNameChange = (name: string) => {
+    setEditor((e) => ({ ...e, name, slug: editingForm ? e.slug : toSlug(name) }));
+  };
+
+  const addField = () => {
+    setEditor((e) => ({ ...e, fieldDefinitions: [...e.fieldDefinitions, blankField()] }));
+  };
+
+  const removeField = (idx: number) => {
+    setEditor((e) => ({ ...e, fieldDefinitions: e.fieldDefinitions.filter((_, i) => i !== idx) }));
+  };
+
+  const updateField = (idx: number, patch: Partial<FieldDefinition>) => {
+    setEditor((e) => ({
+      ...e,
+      fieldDefinitions: e.fieldDefinitions.map((f, i) =>
+        i === idx ? { ...f, ...patch } : f
+      ),
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!editor.name.trim() || !editor.slug.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: editor.name.trim(),
+        slug: editor.slug.trim(),
+        description: editor.description.trim() || undefined,
+        sortOrder: editor.sortOrder,
+        fieldDefinitions: editor.fieldDefinitions.filter((f) => f.label.trim()),
+      };
+
+      if (editingForm) {
+        await adminApi.updateForm(editingForm.id, payload);
+      } else {
+        await adminApi.createForm(payload);
+      }
+
+      closeModal();
+      load();
+    } catch {
+      alert('Failed to save form template. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleToggleActive = async (form: FormTemplate) => {
     await adminApi.updateForm(form.id, { isActive: !form.isActive });
