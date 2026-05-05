@@ -13,6 +13,7 @@ import { prisma } from '../config/database';
 import { authenticate } from '../middleware/authenticate';
 import { validate } from '../middleware/validate';
 import { uploadToSharePoint } from '../services/sharepoint';
+import { notifyAllAdmins } from '../services/notifications';
 
 export const sessionsRouter = Router();
 sessionsRouter.use(authenticate);
@@ -90,9 +91,14 @@ sessionsRouter.post('/', validate(createSessionSchema), async (req: Request, res
       });
     }
 
-    // Generate a human-readable session code
-    const sessionCount = await prisma.intakeSession.count();
-    const sessionCode = `intake-${String(sessionCount + 1).padStart(3, '0')}`;
+    // Generate a human-readable session code based on the highest existing number,
+    // not the count — count breaks when sessions are deleted.
+    const last = await prisma.intakeSession.findFirst({
+      orderBy: { sessionCode: 'desc' },
+      select: { sessionCode: true },
+    });
+    const lastNum = last ? parseInt(last.sessionCode.replace('intake-', ''), 10) : 0;
+    const sessionCode = `intake-${String(lastNum + 1).padStart(3, '0')}`;
 
     const session = await prisma.intakeSession.create({
       data: {
@@ -116,6 +122,16 @@ sessionsRouter.post('/', validate(createSessionSchema), async (req: Request, res
         metadata: { patientIdString, formCount: formTemplateIds.length },
       },
     });
+
+    const counselor = await prisma.user.findUnique({
+      where: { id: counselorId },
+      select: { username: true },
+    });
+    await notifyAllAdmins(
+      'SESSION_STARTED',
+      `${counselor?.username} started a new intake for ${patientIdString} (${session.sessionCode})`,
+      { sessionId: session.id, sessionCode: session.sessionCode, patientIdString }
+    );
 
     return res.status(201).json(session);
   } catch {
@@ -210,6 +226,20 @@ sessionsRouter.post('/:id/export', async (req: Request, res: Response) => {
       },
     });
 
+    const exporter = await prisma.user.findUnique({
+      where: { id: performedById },
+      select: { username: true },
+    });
+    const exportedSession = await prisma.intakeSession.findUnique({
+      where: { id },
+      select: { sessionCode: true },
+    });
+    await notifyAllAdmins(
+      'PDF_EXPORTED',
+      `${exporter?.username} exported "${formName}" for session ${exportedSession?.sessionCode}`,
+      { sessionId: id, formName, exportPath }
+    );
+
     return res.json({ exportPath });
   } catch (err) {
     console.error('SharePoint export failed:', err);
@@ -257,6 +287,12 @@ sessionsRouter.post('/:id/confirm-methasoft', async (req: Request, res: Response
         metadata: { fieldValuesDeleted: true },
       },
     });
+
+    await notifyAllAdmins(
+      'SESSION_COMPLETED',
+      `Session ${session.sessionCode} for ${session.patientIdString} is complete — ready to link in Methasoft`,
+      { sessionId: id, sessionCode: session.sessionCode, patientIdString: session.patientIdString }
+    );
 
     return res.json({ message: 'Intake session completed and documented' });
   } catch {

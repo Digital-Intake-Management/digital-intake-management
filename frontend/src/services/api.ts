@@ -99,3 +99,18 @@ export const reportsApi = {
   getWeekly: () => api.get('/reports/weekly'),
   downloadCsv: () => api.get('/reports/weekly/csv', { responseType: 'blob' }),
 };
+
+export const notificationsApi = {
+  list: () => api.get<AppNotification[]>('/notifications'),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`, {}),
+  markAllRead: () => api.patch('/notifications/read-all', {}),
+};
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  metadata?: Record<string, unknown> | null;
+}

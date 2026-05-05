@@ -13,6 +13,7 @@ import { prisma } from '../config/database';
 import { authenticate } from '../middleware/authenticate';
 import { requireAdmin } from '../middleware/requireAdmin';
 import { validate } from '../middleware/validate';
+import { createNotification, notifyAllCounselors } from '../services/notifications';
 
 const FORMS_DIR = path.join(process.cwd(), 'public', 'forms');
 
@@ -60,6 +61,11 @@ adminRouter.get('/forms', async (_req: Request, res: Response) => {
 adminRouter.post('/forms', validate(formTemplateSchema), async (req: Request, res: Response) => {
   try {
     const form = await prisma.formTemplate.create({ data: req.body });
+    await notifyAllCounselors(
+      'FORM_ADDED',
+      `A new form is now available for future intakes: "${form.name}"`,
+      { formId: form.id, formName: form.name }
+    );
     return res.status(201).json(form);
   } catch {
     return res.status(500).json({ error: 'Failed to create form template' });
@@ -82,10 +88,35 @@ adminRouter.patch('/forms/:id', async (req: Request, res: Response) => {
 // DELETE /api/admin/forms/:id — deactivate a form template (soft delete)
 adminRouter.delete('/forms/:id', async (req: Request, res: Response) => {
   try {
+    const form = await prisma.formTemplate.findUnique({ where: { id: req.params.id } });
+    if (!form) return res.status(404).json({ error: 'Form template not found' });
+
+    // Find counselors with active sessions that include this form
+    const affected = await prisma.sessionForm.findMany({
+      where: {
+        formTemplateId: req.params.id,
+        session: { status: { in: ['NOT_STARTED', 'IN_PROGRESS'] } },
+      },
+      select: { session: { select: { counselorId: true } } },
+    });
+
     await prisma.formTemplate.update({
       where: { id: req.params.id },
       data: { isActive: false },
     });
+
+    const uniqueCounselorIds = [...new Set(affected.map((sf) => sf.session.counselorId))];
+    await Promise.all(
+      uniqueCounselorIds.map((id) =>
+        createNotification(
+          id,
+          'FORM_DEACTIVATED',
+          `"${form.name}" was deactivated by an admin and removed from active sessions.`,
+          { formId: form.id, formName: form.name }
+        )
+      )
+    );
+
     return res.json({ message: 'Form template deactivated' });
   } catch {
     return res.status(500).json({ error: 'Failed to deactivate form template' });

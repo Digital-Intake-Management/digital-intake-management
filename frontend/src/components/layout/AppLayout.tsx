@@ -4,8 +4,10 @@
  * Owner: Meya / Dennise
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { notificationsApi, type AppNotification } from '@/services/api';
 import clsx from 'clsx';
 
 // Simple inline SVG icons to avoid a heavy icon dependency
@@ -48,11 +50,69 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const NOTIFICATION_ICONS: Record<string, string> = {
+  FORM_DEACTIVATED: '⚠️',
+  FORM_ADDED: '📋',
+  SESSION_STARTED: '🟢',
+  SESSION_COMPLETED: '✅',
+  PDF_EXPORTED: '📄',
+};
+
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') ?? '';
+
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const fetchNotifications = () => {
+    notificationsApi.list().then((r) => setNotifications(r.data)).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 45000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleBellClick = () => {
+    setShowNotifications((prev) => !prev);
+    if (!showNotifications && unreadCount > 0) {
+      notificationsApi.markAllRead().then(fetchNotifications).catch(() => {});
+    }
+  };
+
+  const handleNotificationClick = (n: AppNotification) => {
+    if (!n.read) {
+      notificationsApi.markRead(n.id).then(fetchNotifications).catch(() => {});
+    }
+  };
 
   const handleSearch = (value: string) => {
     setSearchParams(value ? { q: value } : {}, { replace: true });
@@ -170,10 +230,65 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
                 <SettingsIcon />
               </button>
             )}
-            <button className="text-gray-400 hover:text-gray-600 transition-colors relative">
-              <BellIcon />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-accent-red rounded-full" />
-            </button>
+            {/* Notification bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={handleBellClick}
+                className="text-gray-400 hover:text-gray-600 transition-colors relative"
+                title="Notifications"
+              >
+                <BellIcon />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-accent-red rounded-full flex items-center justify-center text-white text-[9px] font-bold px-0.5">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 top-9 w-80 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <span className="text-sm font-semibold text-gray-900">Notifications</span>
+                    {notifications.some((n) => !n.read) && (
+                      <button
+                        onClick={() => notificationsApi.markAllRead().then(fetchNotifications).catch(() => {})}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                    {notifications.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-8">No notifications yet.</p>
+                    ) : (
+                      notifications.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={clsx(
+                            'w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex gap-3',
+                            !n.read && 'bg-primary-50'
+                          )}
+                        >
+                          <span className="text-base leading-none mt-0.5 flex-shrink-0">
+                            {NOTIFICATION_ICONS[n.type] ?? '🔔'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-800 leading-snug">{n.message}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.createdAt)}</p>
+                          </div>
+                          {!n.read && (
+                            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-1 ml-auto" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             {/* User avatar */}
             <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold text-sm">
               {user?.username[0].toUpperCase()}

@@ -27,6 +27,7 @@ model User {
   intakeSessions IntakeSession[]
   patientIds     PatientId[]     @relation("CreatedBy")
   auditLogs      AuditLog[]
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -178,6 +179,25 @@ model AuditLog {
   performedBy User           @relation(fields: [performedById], references: [id])
 
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// In-app notifications for counselors and admins.
+// Polled by the frontend every 45 seconds.
+// ─────────────────────────────────────────────
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String   // e.g. "FORM_DEACTIVATED", "SESSION_COMPLETED"
+  message   String
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
 }
 
 // ─────────────────────────────────────────────
