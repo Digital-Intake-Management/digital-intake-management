@@ -17,10 +17,9 @@
  */
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { sessionsApi, formsApi } from '@/services/api';
+import { useState, useEffect } from 'react';
+import { sessionsApi, formsApi, patientsApi } from '@/services/api';
 import type { FormTemplate } from '@/types';
-import { useEffect } from 'react';
 
 export default function PatientConfirmPage() {
   const location = useLocation();
@@ -28,6 +27,7 @@ export default function PatientConfirmPage() {
   const { patientIdString } = (location.state as { patientIdString: string }) ?? {};
   const [forms, setForms] = useState<FormTemplate[]>([]);
   const [selectedFormIds, setSelectedFormIds] = useState<string[]>([]);
+  const [previouslyCompletedIds, setPreviouslyCompletedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -35,11 +35,13 @@ export default function PatientConfirmPage() {
       navigate('/intake/new');
       return;
     }
-    formsApi.list().then((r) => {
-      setForms(r.data);
-      // Default: nothing selected — counselor picks only what's needed this session
-      setSelectedFormIds([]);
-    });
+    Promise.all([formsApi.list(), patientsApi.verify(patientIdString)]).then(
+      ([formsRes, patientRes]) => {
+        setForms(formsRes.data);
+        setSelectedFormIds([]);
+        setPreviouslyCompletedIds(new Set(patientRes.data.completedFormTemplateIds ?? []));
+      }
+    );
   }, [patientIdString, navigate]);
 
   const handleConfirm = async () => {
@@ -126,7 +128,7 @@ export default function PatientConfirmPage() {
 
         <div className="space-y-2">
           {forms.map((form) => (
-            <label key={form.id} className="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-gray-50 transition-colors">
+            <label key={form.id} className="flex items-start gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-gray-50 transition-colors">
               <input
                 type="checkbox"
                 checked={selectedFormIds.includes(form.id)}
@@ -137,9 +139,16 @@ export default function PatientConfirmPage() {
                       : prev.filter((id) => id !== form.id)
                   )
                 }
-                className="w-4 h-4 accent-primary"
+                className="w-4 h-4 accent-primary mt-0.5"
               />
-              <span className="text-sm text-gray-700 flex-1">{form.name}</span>
+              <div className="flex-1">
+                <span className="text-sm text-gray-700">{form.name}</span>
+                {previouslyCompletedIds.has(form.id) && (
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Previously completed — only select if you want to update.
+                  </p>
+                )}
+              </div>
             </label>
           ))}
         </div>
