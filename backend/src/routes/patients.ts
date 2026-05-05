@@ -53,7 +53,15 @@ patientsRouter.get('/:patientIdString', async (req: Request, res: Response) => {
       where: { patientIdString },
       include: {
         intakeSessions: {
-          select: { id: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            sessionForms: {
+              where: { status: 'COMPLETED' },
+              select: { formTemplateId: true },
+            },
+          },
           orderBy: { createdAt: 'desc' },
         },
       },
@@ -63,15 +71,22 @@ patientsRouter.get('/:patientIdString', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Patient ID not found', exists: false });
     }
 
-    return res.json({ ...patient, exists: true });
+    // Unique form template IDs completed in any prior session for this patient
+    const completedFormTemplateIds = [
+      ...new Set(
+        patient.intakeSessions.flatMap((s) => s.sessionForms.map((sf) => sf.formTemplateId))
+      ),
+    ];
+
+    return res.json({ ...patient, exists: true, completedFormTemplateIds });
   } catch {
     return res.status(500).json({ error: 'Failed to verify patient ID' });
   }
 });
 
 // ── POST /api/patients ─────────────────────────────────────────────────────────
-// Create a new patient ID in the system
-patientsRouter.post('/', validate(patientIdSchema), async (req: Request, res: Response) => {
+// Create a new patient ID in the system (admin only)
+patientsRouter.post('/', requireAdmin, validate(patientIdSchema), async (req: Request, res: Response) => {
   try {
     const { patientIdString } = req.body;
     const userId = (req as any).user.userId;

@@ -13,6 +13,7 @@ import { prisma } from '../config/database';
 import { authenticate } from '../middleware/authenticate';
 import { validate } from '../middleware/validate';
 import { uploadToSharePoint } from '../services/sharepoint';
+import { notifyAllAdmins } from '../services/notifications';
 
 export const sessionsRouter = Router();
 sessionsRouter.use(authenticate);
@@ -90,9 +91,14 @@ sessionsRouter.post('/', validate(createSessionSchema), async (req: Request, res
       });
     }
 
-    // Generate a human-readable session code
-    const sessionCount = await prisma.intakeSession.count();
-    const sessionCode = `intake-${String(sessionCount + 1).padStart(3, '0')}`;
+    // Generate a human-readable session code based on the highest existing number,
+    // not the count — count breaks when sessions are deleted.
+    const last = await prisma.intakeSession.findFirst({
+      orderBy: { sessionCode: 'desc' },
+      select: { sessionCode: true },
+    });
+    const lastNum = last ? parseInt(last.sessionCode.replace('intake-', ''), 10) : 0;
+    const sessionCode = `intake-${String(lastNum + 1).padStart(3, '0')}`;
 
     const session = await prisma.intakeSession.create({
       data: {
@@ -117,9 +123,62 @@ sessionsRouter.post('/', validate(createSessionSchema), async (req: Request, res
       },
     });
 
+    const counselor = await prisma.user.findUnique({
+      where: { id: counselorId },
+      select: { username: true },
+    });
+    await notifyAllAdmins(
+      'SESSION_STARTED',
+      `${counselor?.username} started a new intake for ${patientIdString} (${session.sessionCode})`,
+      { sessionId: session.id, sessionCode: session.sessionCode, patientIdString }
+    );
+
     return res.status(201).json(session);
   } catch {
     return res.status(500).json({ error: 'Failed to create session' });
+  }
+});
+
+// ── POST /api/sessions/:id/forms ──────────────────────────────────────────────
+// Add additional form templates to an in-progress session.
+// Silently skips forms that are already in the session.
+sessionsRouter.post('/:id/forms', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { formTemplateIds } = req.body;
+
+    if (!Array.isArray(formTemplateIds) || formTemplateIds.length === 0) {
+      return res.status(400).json({ error: 'formTemplateIds must be a non-empty array' });
+    }
+
+    const session = await prisma.intakeSession.findUnique({
+      where: { id },
+      include: { sessionForms: { select: { formTemplateId: true } } },
+    });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (session.status === 'LINKED_IN_METHASOFT') {
+      return res.status(409).json({ error: 'Cannot add forms to a completed session' });
+    }
+
+    const existing = new Set(session.sessionForms.map((sf) => sf.formTemplateId));
+    const toAdd = (formTemplateIds as string[]).filter((id) => !existing.has(id));
+
+    if (toAdd.length === 0) {
+      return res.json({ message: 'All selected forms are already in this session', added: 0 });
+    }
+
+    await prisma.sessionForm.createMany({
+      data: toAdd.map((formTemplateId) => ({ sessionId: id, formTemplateId })),
+    });
+
+    const updated = await prisma.intakeSession.findUnique({
+      where: { id },
+      include: { sessionForms: { include: { formTemplate: true, fieldValues: true } } },
+    });
+
+    return res.json(updated);
+  } catch {
+    return res.status(500).json({ error: 'Failed to add forms to session' });
   }
 });
 
@@ -210,6 +269,20 @@ sessionsRouter.post('/:id/export', async (req: Request, res: Response) => {
       },
     });
 
+    const exporter = await prisma.user.findUnique({
+      where: { id: performedById },
+      select: { username: true },
+    });
+    const exportedSession = await prisma.intakeSession.findUnique({
+      where: { id },
+      select: { sessionCode: true },
+    });
+    await notifyAllAdmins(
+      'PDF_EXPORTED',
+      `${exporter?.username} exported "${formName}" for session ${exportedSession?.sessionCode}`,
+      { sessionId: id, formName, exportPath }
+    );
+
     return res.json({ exportPath });
   } catch (err) {
     console.error('SharePoint export failed:', err);
@@ -257,6 +330,12 @@ sessionsRouter.post('/:id/confirm-methasoft', async (req: Request, res: Response
         metadata: { fieldValuesDeleted: true },
       },
     });
+
+    await notifyAllAdmins(
+      'SESSION_COMPLETED',
+      `Session ${session.sessionCode} for ${session.patientIdString} is complete — ready to link in Methasoft`,
+      { sessionId: id, sessionCode: session.sessionCode, patientIdString: session.patientIdString }
+    );
 
     return res.json({ message: 'Intake session completed and documented' });
   } catch {

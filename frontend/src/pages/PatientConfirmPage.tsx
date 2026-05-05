@@ -17,10 +17,9 @@
  */
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { sessionsApi, formsApi } from '@/services/api';
+import { useState, useEffect } from 'react';
+import { sessionsApi, formsApi, patientsApi } from '@/services/api';
 import type { FormTemplate } from '@/types';
-import { useEffect } from 'react';
 
 export default function PatientConfirmPage() {
   const location = useLocation();
@@ -28,6 +27,7 @@ export default function PatientConfirmPage() {
   const { patientIdString } = (location.state as { patientIdString: string }) ?? {};
   const [forms, setForms] = useState<FormTemplate[]>([]);
   const [selectedFormIds, setSelectedFormIds] = useState<string[]>([]);
+  const [previouslyCompletedIds, setPreviouslyCompletedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -35,11 +35,13 @@ export default function PatientConfirmPage() {
       navigate('/intake/new');
       return;
     }
-    formsApi.list().then((r) => {
-      setForms(r.data);
-      // Default: select all active forms
-      setSelectedFormIds(r.data.map((f: FormTemplate) => f.id));
-    });
+    Promise.all([formsApi.list(), patientsApi.verify(patientIdString)]).then(
+      ([formsRes, patientRes]) => {
+        setForms(formsRes.data);
+        setSelectedFormIds([]);
+        setPreviouslyCompletedIds(new Set(patientRes.data.completedFormTemplateIds ?? []));
+      }
+    );
   }, [patientIdString, navigate]);
 
   const handleConfirm = async () => {
@@ -73,7 +75,7 @@ export default function PatientConfirmPage() {
         </div>
         <div className="text-right text-sm text-gray-400">
           <p className="text-xs text-gray-400">Session ID</p>
-          <p className="font-semibold text-gray-700">intake-new</p>
+          <p className="text-sm font-semibold text-gray-400">—</p>
         </div>
       </div>
 
@@ -93,85 +95,68 @@ export default function PatientConfirmPage() {
         </div>
       </div>
 
-      {/* Info sections — all N/A per spec */}
-      <div className="card space-y-6">
-        {[
-          {
-            title: 'DEMOGRAPHICS',
-            fields: [
-              { label: 'Date of Birth', value: 'N/A' },
-              { label: 'Gender', value: 'N/A' },
-            ],
-          },
-          {
-            title: 'CONTACT INFORMATION',
-            fields: [
-              { label: 'Phone', value: 'N/A' },
-              { label: 'Email', value: 'N/A' },
-            ],
-          },
-          {
-            title: 'EMERGENCY CONTACT / INSURANCE',
-            fields: [
-              { label: 'Emergency Contact', value: 'N/A' },
-              { label: 'Insurance Company', value: 'N/A' },
-            ],
-          },
-        ].map((section) => (
-          <div key={section.title}>
-            <p className="text-xs font-semibold text-gray-400 tracking-wider mb-3">
-              {section.title}
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              {section.fields.map((field) => (
-                <div key={field.label}>
-                  <p className="text-xs text-gray-400">{field.label}</p>
-                  <p className="text-sm font-medium text-gray-700 mt-0.5">{field.value}</p>
-                </div>
-              ))}
-            </div>
-            <hr className="mt-4 border-gray-100" />
-          </div>
-        ))}
+      {/* HIPAA note */}
+      <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-sm text-amber-800">
+          Only select the forms that you wish to complete during this session. You must complete
+          all forms selected in this session in order to download them.
+        </p>
+      </div>
 
-        {/* Form selection */}
-        <div>
-          <p className="text-xs font-semibold text-gray-400 tracking-wider mb-3">
+      {/* Form selection */}
+      <div className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-400 tracking-wider">
             SELECT FORMS FOR THIS INTAKE
           </p>
-          <div className="space-y-2">
-            {forms.map((form) => (
-              <label key={form.id} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedFormIds.includes(form.id)}
-                  onChange={(e) =>
-                    setSelectedFormIds((prev) =>
-                      e.target.checked
-                        ? [...prev, form.id]
-                        : prev.filter((id) => id !== form.id)
-                    )
-                  }
-                  className="w-4 h-4 accent-primary"
-                />
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedFormIds(
+                selectedFormIds.length === forms.length ? [] : forms.map((f) => f.id)
+              )
+            }
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            {selectedFormIds.length === forms.length ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {forms.map((form) => (
+            <label key={form.id} className="flex items-start gap-3 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-gray-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={selectedFormIds.includes(form.id)}
+                onChange={(e) =>
+                  setSelectedFormIds((prev) =>
+                    e.target.checked
+                      ? [...prev, form.id]
+                      : prev.filter((id) => id !== form.id)
+                  )
+                }
+                className="w-4 h-4 accent-primary mt-0.5"
+              />
+              <div className="flex-1">
                 <span className="text-sm text-gray-700">{form.name}</span>
-                <span className="text-xs text-gray-400 ml-auto">
-                  {(form.fieldDefinitions as { key: string }[]).length} fields
-                </span>
-              </label>
-            ))}
-          </div>
+                {previouslyCompletedIds.has(form.id) && (
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Previously completed — only select if you want to update.
+                  </p>
+                )}
+              </div>
+            </label>
+          ))}
         </div>
 
-        {/* Confirm banner */}
-        <div className="bg-primary-50 rounded-xl p-4">
-          <p className="text-sm font-semibold text-primary">Confirm Patient Identity</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Please verify with the patient that this information is correct before proceeding to form selection.
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <p className="text-xs text-gray-400">
+            {selectedFormIds.length} of {forms.length} forms selected
           </p>
-        </div>
-
-        <div className="flex justify-end">
           <button
             onClick={handleConfirm}
             disabled={isLoading || selectedFormIds.length === 0}

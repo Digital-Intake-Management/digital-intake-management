@@ -58,7 +58,15 @@ export default function PdfFormViewer({ slug, initialValues, onChange }: Props) 
   const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [allRendered, setAllRendered] = useState(false);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+
+  // Always-current ref so the canvas callback never captures a stale closure
+  const pdfPagesRef = useRef<pdfjsLib.PDFPageProxy[]>([]);
+  pdfPagesRef.current = pdfPages; // updated synchronously during render, before ref callbacks fire
+
+  const renderedCountRef = useRef(0);
+  const startedPagesRef = useRef(new Set<number>());
 
   // Keep local values in sync when parent reloads saved data
   useEffect(() => {
@@ -108,21 +116,42 @@ export default function PdfFormViewer({ slug, initialValues, onChange }: Props) 
     })();
   }, [slug]);
 
-  // Render each page onto its canvas once pages are loaded
+  // Reset render-tracking state whenever a new PDF slug is loaded
   useEffect(() => {
-    pdfPages.forEach((page, i) => {
-      const canvas = canvasRefs.current[i];
+    setAllRendered(false);
+    renderedCountRef.current = 0;
+    startedPagesRef.current = new Set();
+  }, [slug]);
+
+  // Called by the canvas ref callback the moment a canvas mounts in the DOM.
+  // Using a ref callback (not useEffect) guarantees the canvas exists when we
+  // attempt to render — the old useEffect approach was racy because pdfPages
+  // could be set before React committed the <canvas> elements.
+  const bindCanvas = useCallback(
+    (canvas: HTMLCanvasElement | null, pageIndex: number) => {
+      canvasRefs.current[pageIndex] = canvas;
       if (!canvas) return;
+      if (startedPagesRef.current.has(pageIndex)) return; // already rendering
+
+      const page = pdfPagesRef.current[pageIndex];
+      if (!page) return;
+
+      startedPagesRef.current.add(pageIndex);
       const viewport = page.getViewport({ scale: SCALE });
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // pdfjs-dist v5: canvas is the primary field; canvasContext is optional/legacy
-        page.render({ canvas, viewport }).promise.catch(() => {});
-      }
-    });
-  }, [pdfPages]);
+
+      page.render({ canvas, viewport }).promise
+        .then(() => {
+          renderedCountRef.current += 1;
+          if (renderedCountRef.current >= pdfPagesRef.current.length) {
+            setAllRendered(true);
+          }
+        })
+        .catch(() => {});
+    },
+    [],
+  );
 
   const handleChange = useCallback(
     (key: string, value: string) => {
@@ -161,16 +190,16 @@ export default function PdfFormViewer({ slug, initialValues, onChange }: Props) 
           style={{ width: size.width, maxWidth: '100%' }}
         >
           <canvas
-            ref={(el) => { canvasRefs.current[pi] = el; }}
+            ref={(el) => bindCanvas(el, pi)}
             style={{ display: 'block', width: '100%' }}
           />
 
-          {/* Input overlay — absolutely positioned over the canvas */}
+          {/* Input overlays only shown after all pages have finished rendering */}
           <div
             className="absolute top-0 left-0 pointer-events-none"
             style={{ width: size.width, height: size.height }}
           >
-            {inputFields
+            {allRendered && inputFields
               .filter((f) => f.pageIndex === pi)
               .map((f) => {
                 // Convert PDF coords (bottom-left origin) → CSS coords (top-left origin)
@@ -244,8 +273,8 @@ export default function PdfFormViewer({ slug, initialValues, onChange }: Props) 
         </div>
       ))}
 
-      {/* ── Signature pads at bottom ──────────────────────────────────────────── */}
-      {sigFields.length > 0 && (
+      {/* ── Signature pads at bottom — only after all pages are rendered ──────── */}
+      {allRendered && sigFields.length > 0 && (
         <div className="pt-6 mt-2 border-t border-gray-200">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">
             Signatures

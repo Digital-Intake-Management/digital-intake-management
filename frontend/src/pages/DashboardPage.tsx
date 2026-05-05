@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { sessionsApi } from '@/services/api';
 import type { IntakeSession } from '@/types';
 
@@ -17,6 +17,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<IntakeSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const q = (searchParams.get('q') ?? '').toLowerCase();
 
   useEffect(() => {
     sessionsApi.list().then((r) => {
@@ -24,6 +26,14 @@ export default function DashboardPage() {
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, []);
+
+  const filtered = q
+    ? sessions.filter(
+        (s) =>
+          s.patientIdString.toLowerCase().includes(q) ||
+          s.sessionCode.toLowerCase().includes(q),
+      )
+    : sessions;
 
   const totalSessions = sessions.length;
   const activeSessions = sessions.filter((s) => s.status === 'IN_PROGRESS').length;
@@ -75,14 +85,25 @@ export default function DashboardPage() {
 
       {/* Session list */}
       <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-900">Intake Sessions</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">Intake Sessions</h2>
+          {q && (
+            <p className="text-xs text-gray-400">
+              {filtered.length} result{filtered.length !== 1 ? 's' : ''} for "{q}"
+            </p>
+          )}
+        </div>
 
         {sessions.length === 0 ? (
           <p className="text-sm text-gray-400 py-8 text-center">
             No intake sessions yet. Start one above.
           </p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-gray-400 py-8 text-center">
+            No sessions match "{q}".
+          </p>
         ) : (
-          sessions.map((session) => {
+          filtered.map((session) => {
             const progress = getProgressPercent(session);
             const isActive = session.status === 'IN_PROGRESS';
             const isComplete = session.status === 'LINKED_IN_METHASOFT';

@@ -1,0 +1,22 @@
+# Environment variables — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploaded PDFs (serve from the filesystem, not git)
+public/forms/*.pdf

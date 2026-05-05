@@ -50,6 +50,7 @@ export interface FieldDefinition {
   type: FieldType;
   required: boolean;
   options?: string[]; // for radio fields
+  requiredGroup?: string; // fields sharing the same tag are "at least one required"
 }
 
 export interface FormTemplate {

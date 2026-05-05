@@ -35,7 +35,10 @@ formsRouter.get('/:slug/pdf', async (req: Request, res: Response) => {
     if (!form || !form.pdfPath) {
       return res.status(404).json({ error: 'PDF not found for this form' });
     }
-    const filePath = path.join(FORMS_DIR, form.pdfPath);
+    const filePath = path.resolve(FORMS_DIR, form.pdfPath);
+    if (!filePath.startsWith(path.resolve(FORMS_DIR))) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
     const bytes = await fs.readFile(filePath);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${form.pdfPath}"`);

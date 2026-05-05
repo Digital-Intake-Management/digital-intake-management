@@ -42,6 +42,8 @@ import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import AdminPatientsPage from '@/pages/AdminPatientsPage';
 import AdminFormsPage from '@/pages/AdminFormsPage';
 import AdminSettingsPage from '@/pages/AdminSettingsPage';
+import AdminUsersPage from '@/pages/AdminUsersPage';
+import ChangePasswordPage from '@/pages/ChangePasswordPage';
 
 export default function App() {
   return (
@@ -50,6 +52,11 @@ export default function App() {
         {/* Public */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Change password — accessible to any authenticated user */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+        </Route>
 
         {/* Counselor routes */}
         <Route element={<ProtectedRoute />}>
@@ -69,6 +76,7 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/patients" element={<AdminPatientsPage />} />
           <Route path="/admin/forms" element={<AdminFormsPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
         </Route>
 

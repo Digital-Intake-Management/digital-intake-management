@@ -10,7 +10,7 @@ import PdfFormViewer from '@/components/forms/PdfFormViewer';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { sessionsApi } from '@/services/api';
-import type { IntakeSession, SessionForm } from '@/types';
+import type { IntakeSession, SessionForm, FieldDefinition } from '@/types';
 
 export default function FormCompletionPage() {
   const { sessionId, formId } = useParams<{ sessionId: string; formId: string }>();
@@ -19,6 +19,7 @@ export default function FormCompletionPage() {
   const [sessionForm, setSessionForm] = useState<SessionForm | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,7 +60,44 @@ export default function FormCompletionPage() {
   );
 
   const handleSubmit = async () => {
-    if (!sessionId || !formId) return;
+    if (!sessionId || !formId || !sessionForm) return;
+
+    // ── Validate required fields ─────────────────────────────────────────────
+    const defs = sessionForm.formTemplate.fieldDefinitions as FieldDefinition[];
+    if (defs.length > 0) {
+      const missing: string[] = [];
+
+      // Tier 1 + individually required fields (no group)
+      for (const def of defs) {
+        if (!def.required || def.requiredGroup) continue;
+        const val = fieldValues[def.key] ?? '';
+        if (!val || val === 'Off') missing.push(def.label || def.key);
+      }
+
+      // Tier 2 group requirements: at least one field per group must be filled
+      const groups = new Map<string, FieldDefinition[]>();
+      for (const def of defs) {
+        if (def.required && def.requiredGroup) {
+          const arr = groups.get(def.requiredGroup) ?? [];
+          arr.push(def);
+          groups.set(def.requiredGroup, arr);
+        }
+      }
+      for (const [tag, groupDefs] of groups) {
+        const anyFilled = groupDefs.some((d) => {
+          const val = fieldValues[d.key] ?? '';
+          return val && val !== 'Off';
+        });
+        if (!anyFilled) missing.push(`"${tag}" (fill at least one)`);
+      }
+
+      if (missing.length > 0) {
+        setValidationError(`Required fields missing: ${missing.join(' · ')}`);
+        return;
+      }
+    }
+
+    setValidationError(null);
     setIsSaving(true);
     try {
       await sessionsApi.saveFields(sessionId, formId, fieldValues);
@@ -112,6 +150,16 @@ export default function FormCompletionPage() {
         initialValues={fieldValues}
         onChange={handleFieldChange}
       />
+
+      {/* Validation error */}
+      {validationError && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          {validationError}
+        </div>
+      )}
 
       {/* Action bar */}
       <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 sticky bottom-0 bg-white pb-4">

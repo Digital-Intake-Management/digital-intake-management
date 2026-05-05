@@ -43,9 +43,15 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: (username: string, password: string) =>
-    api.post<{ token: string; user: { id: string; username: string; role: string } }>(
+    api.post<{ token: string; user: { id: string; username: string; role: string; mustChangePassword: boolean } }>(
       '/auth/login',
       { username, password }
+    ),
+  logout: () => api.post('/auth/logout', {}),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ token: string; user: { id: string; username: string; role: string; mustChangePassword: boolean } }>(
+      '/auth/change-password',
+      { currentPassword, newPassword }
     ),
 };
 
@@ -67,6 +73,8 @@ export const sessionsApi = {
     api.patch(`/sessions/${sessionId}/forms/${formId}/complete`, {}),
   exportPdf: (sessionId: string, patientIdString: string, formName: string, pdfBase64: string) =>
     api.post(`/sessions/${sessionId}/export`, { patientIdString, formName, pdfBase64 }),
+  addForms: (sessionId: string, formTemplateIds: string[]) =>
+    api.post(`/sessions/${sessionId}/forms`, { formTemplateIds }),
   confirmMethasoft: (sessionId: string) =>
     api.post(`/sessions/${sessionId}/confirm-methasoft`, {}),
 };
@@ -76,13 +84,43 @@ export const formsApi = {
   get: (id: string) => api.get(`/forms/${id}`),
 };
 
+export const adminUsersApi = {
+  list: () => api.get<AdminUser[]>('/admin/users'),
+  create: (data: { username: string; password: string; role: 'COUNSELOR' | 'ADMIN' }) =>
+    api.post<AdminUser>('/admin/users', data),
+  update: (id: string, data: { isActive?: boolean; role?: 'COUNSELOR' | 'ADMIN' }) =>
+    api.patch<AdminUser>(`/admin/users/${id}`, data),
+  resetPassword: (id: string) =>
+    api.post<{ tempPassword: string }>(`/admin/users/${id}/reset-password`, {}),
+};
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: 'COUNSELOR' | 'ADMIN';
+  isActive: boolean;
+  createdAt: string;
+  _count: { intakeSessions: number };
+}
+
 export const adminApi = {
+  importPatients: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post<{ added: string[]; duplicates: string[]; errors: { raw: string; reason: string }[] }>(
+      '/admin/patients/import',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+  listForms: () => api.get('/admin/forms'),
   getStats: () => api.get('/admin/stats'),
   getConfig: () => api.get('/admin/config'),
   updateConfig: (key: string, value: string) => api.patch(`/admin/config/${key}`, { value }),
   createForm: (data: unknown) => api.post('/admin/forms', data),
   updateForm: (id: string, data: unknown) => api.patch(`/admin/forms/${id}`, data),
   deleteForm: (id: string) => api.delete(`/admin/forms/${id}`),
+  deleteFormPermanent: (id: string) => api.delete(`/admin/forms/${id}?permanent=true`),
   getSessions: () => api.get('/admin/sessions'),
   deleteSession: (id: string) => api.delete(`/admin/sessions/${id}`),
   uploadFormPdf: (id: string, file: File) => {
@@ -98,3 +136,18 @@ export const reportsApi = {
   getWeekly: () => api.get('/reports/weekly'),
   downloadCsv: () => api.get('/reports/weekly/csv', { responseType: 'blob' }),
 };
+
+export const notificationsApi = {
+  list: () => api.get<AppNotification[]>('/notifications'),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`, {}),
+  markAllRead: () => api.patch('/notifications/read-all', {}),
+};
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  metadata?: Record<string, unknown> | null;
+}

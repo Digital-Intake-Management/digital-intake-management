@@ -17,6 +17,7 @@ import { sessionsRouter } from './routes/sessions';
 import { formsRouter } from './routes/forms';
 import { adminRouter } from './routes/admin';
 import { reportsRouter } from './routes/reports';
+import { notificationsRouter } from './routes/notifications';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { startWeeklyReportJob } from './services/reportScheduler';
@@ -68,6 +69,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/forms', formsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
