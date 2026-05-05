@@ -215,7 +215,7 @@ sessionsRouter.post('/:id/confirm-methasoft', async (req: Request, res: Response
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     // Delete temporary field values per spec requirement
-    const sessionFormIds = session.sessionForms.map((sf) => sf.id);
+    const sessionFormIds = session.sessionForms.map((sf: { id: string }) => sf.id);
     await prisma.formFieldValue.deleteMany({
       where: { sessionFormId: { in: sessionFormIds } },
     });

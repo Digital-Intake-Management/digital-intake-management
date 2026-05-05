@@ -1,17 +1,15 @@
 /**
  * pages/DocumentExportPage.tsx
- * Shows export success confirmation after PDF is generated and sent to SharePoint.
- * Owner: Anthony (PDF generation logic) / Dennise (UI)
- *
- * TODO (Anthony): Trigger PDF generation here using pdf-lib.
- * The flow: all form field values + signature canvases → flatten onto PDF → upload to SharePoint path.
- * Call sessionsApi.recordExport(sessionId, exportPath) on success.
- * Then navigate to /intake/:sessionId/methasoft.
+ * Fetches session data, generates one PDF per completed form via pdfService,
+ * triggers browser downloads, then records the export in the backend.
+ * Owner: Anthony (PDF logic) / Dennise (UI)
  */
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { sessionsApi } from '@/services/api';
+import { generateFormPdf, getPdfFilename, downloadPdf } from '@/services/pdfService';
+import type { IntakeSession, FormFieldValue } from '@/types';
 
 export default function DocumentExportPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -22,9 +20,32 @@ export default function DocumentExportPage() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // TODO: Call PDF generation service here (Anthony)
-      // const exportPath = await pdfService.generateAndExport(sessionId);
-      const exportPath = '/secure/carelink/intake-forms/placeholder.pdf'; // remove when PDF service is ready
+      const { data: session } = await sessionsApi.get(sessionId!) as { data: IntakeSession };
+
+      for (const sessionForm of session.sessionForms) {
+        const fieldValues: Record<string, string> = {};
+        const signatureDataUrls: Record<string, string> = {};
+
+        for (const fv of (sessionForm.fieldValues ?? []) as FormFieldValue[]) {
+          if (fv.fieldValue.startsWith('data:image/')) {
+            signatureDataUrls[fv.fieldKey] = fv.fieldValue;
+          } else {
+            fieldValues[fv.fieldKey] = fv.fieldValue;
+          }
+        }
+
+        const pdfBytes = await generateFormPdf({
+          patientIdString: session.patientIdString,
+          sessionCode: session.sessionCode,
+          sessionForm,
+          fieldValues,
+          signatureDataUrls,
+        });
+
+        downloadPdf(pdfBytes, getPdfFilename(session.patientIdString, sessionForm.formTemplate.name));
+      }
+
+      const exportPath = `/secure/carelink/intake-forms/${session.sessionCode}/`;
       await sessionsApi.recordExport(sessionId!, exportPath);
       setExported(true);
     } catch {

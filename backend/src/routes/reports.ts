@@ -64,11 +64,41 @@ reportsRouter.get('/weekly', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/reports/weekly/csv — download report as CSV
+// GET /api/reports/weekly/csv — download weekly report as CSV
 reportsRouter.get('/weekly/csv', async (_req: Request, res: Response) => {
-  // TODO: implement CSV generation using the same data as /weekly
-  // Use a library like 'csv-stringify' or build manually
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=weekly-report.csv');
-  res.send('patient_id,status,forms_completed,forms_missing\n'); // placeholder
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const sessions = await prisma.intakeSession.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      include: {
+        sessionForms: { include: { formTemplate: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const header = 'patient_id,status,forms_completed,forms_missing,missing_form_names,created_date';
+    const rows = sessions.map((s) => {
+      const completed = s.sessionForms.filter((sf) => sf.status === 'COMPLETED').length;
+      const missingForms = s.sessionForms
+        .filter((sf) => sf.status !== 'COMPLETED')
+        .map((sf) => sf.formTemplate.name);
+      return [
+        s.patientIdString,
+        s.status,
+        String(completed),
+        String(s.sessionForms.length - completed),
+        missingForms.length > 0 ? `"${missingForms.join('; ')}"` : 'None',
+        s.createdAt.toISOString().split('T')[0],
+      ].join(',');
+    });
+
+    const filename = `weekly-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    return res.send([header, ...rows].join('\n'));
+  } catch {
+    return res.status(500).json({ error: 'Failed to generate CSV report' });
+  }
 });
