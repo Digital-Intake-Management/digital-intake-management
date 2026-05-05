@@ -1,10 +1,10 @@
 /**
  * pages/AdminFormsPage.tsx
- * Admin — view, create, edit, and deactivate form templates.
+ * Admin — view, activate/deactivate, and upload replacement PDFs for form templates.
  * Owner: Success / Anthony
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formsApi, adminApi } from '@/services/api';
 import type { FormTemplate, FieldDefinition, FieldType } from '@/types';
 
@@ -36,16 +36,10 @@ const toSlug = (name: string) =>
 
 export default function AdminFormsPage() {
   const [forms, setForms] = useState<FormTemplate[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingForm, setEditingForm] = useState<FormTemplate | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [editor, setEditor] = useState<FormEditorState>({
-    name: '',
-    slug: '',
-    description: '',
-    sortOrder: 99,
-    fieldDefinitions: [blankField()],
-  });
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<{ id: string; text: string; ok: boolean } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFormId = useRef<string | null>(null);
 
   const load = () => formsApi.list().then((r) => setForms(r.data));
   useEffect(() => { load(); }, []);
@@ -125,11 +119,50 @@ export default function AdminFormsPage() {
     load();
   };
 
+  const openFilePicker = (formId: string) => {
+    pendingFormId.current = formId;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const id = pendingFormId.current;
+    if (!file || !id) return;
+
+    // Reset input so the same file can be re-selected later
+    e.target.value = '';
+
+    if (file.type !== 'application/pdf') {
+      setUploadMessage({ id, text: 'Only PDF files are accepted.', ok: false });
+      return;
+    }
+
+    setUploadingId(id);
+    setUploadMessage(null);
+    try {
+      await adminApi.uploadFormPdf(id, file);
+      setUploadMessage({ id, text: 'PDF updated — new sessions will use this version.', ok: true });
+      load();
+    } catch {
+      setUploadMessage({ id, text: 'Upload failed. Please try again.', ok: false });
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Hidden file input shared across all rows */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Form Template Management</h1>
-        <button className="btn-primary" onClick={openCreate}>+ New Form Template</button>
       </div>
 
       <div className="card overflow-hidden p-0">
@@ -137,8 +170,8 @@ export default function AdminFormsPage() {
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500">Form Name</th>
-              <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500">Fields</th>
               <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500">Order</th>
+              <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500">PDF</th>
               <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500">Status</th>
               <th className="px-6 py-3" />
             </tr>
@@ -151,11 +184,20 @@ export default function AdminFormsPage() {
                   {form.description && (
                     <p className="text-xs text-gray-400 mt-0.5">{form.description}</p>
                   )}
-                </td>
-                <td className="px-6 py-3 text-center text-gray-500">
-                  {(form.fieldDefinitions as unknown[]).length}
+                  {uploadMessage?.id === form.id && (
+                    <p className={`text-xs mt-1 font-medium ${uploadMessage.ok ? 'text-green-600' : 'text-red-500'}`}>
+                      {uploadMessage.text}
+                    </p>
+                  )}
                 </td>
                 <td className="px-6 py-3 text-center text-gray-500">{form.sortOrder}</td>
+                <td className="px-6 py-3 text-center">
+                  {form.pdfPath ? (
+                    <span className="text-xs text-green-600 font-medium">✓ Linked</span>
+                  ) : (
+                    <span className="text-xs text-amber-500 font-medium">No PDF</span>
+                  )}
+                </td>
                 <td className="px-6 py-3 text-center">
                   <span className={form.isActive ? 'badge-completed' : 'badge-not-started'}>
                     {form.isActive ? 'Active' : 'Inactive'}
@@ -164,10 +206,11 @@ export default function AdminFormsPage() {
                 <td className="px-6 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
                     <button
-                      onClick={() => openEdit(form)}
-                      className="text-xs text-primary font-medium hover:underline"
+                      onClick={() => openFilePicker(form.id)}
+                      disabled={uploadingId === form.id}
+                      className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
                     >
-                      Edit
+                      {uploadingId === form.id ? 'Uploading…' : 'Replace PDF'}
                     </button>
                     <button
                       onClick={() => handleToggleActive(form)}
@@ -183,144 +226,9 @@ export default function AdminFormsPage() {
         </table>
       </div>
 
-      {/* Form Editor Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {editingForm ? 'Edit Form Template' : 'New Form Template'}
-              </h2>
-              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-            </div>
-
-            {/* Body */}
-            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Form Name *</label>
-                <input
-                  type="text"
-                  value={editor.name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="e.g. Assessment Disclosure"
-                  className="input w-full"
-                />
-              </div>
-
-              {/* Slug */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Slug *</label>
-                <input
-                  type="text"
-                  value={editor.slug}
-                  onChange={(e) => setEditor((ed) => ({ ...ed, slug: e.target.value }))}
-                  placeholder="e.g. assessment-disclosure"
-                  className="input w-full font-mono text-sm"
-                />
-              </div>
-
-              {/* Description + Sort Order */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={editor.description}
-                    onChange={(e) => setEditor((ed) => ({ ...ed, description: e.target.value }))}
-                    placeholder="Optional short description"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Sort Order</label>
-                  <input
-                    type="number"
-                    value={editor.sortOrder}
-                    onChange={(e) => setEditor((ed) => ({ ...ed, sortOrder: Number(e.target.value) }))}
-                    className="input w-full"
-                    min={1}
-                  />
-                </div>
-              </div>
-
-              {/* Field Definitions */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-gray-600">Field Definitions</label>
-                  <button
-                    onClick={addField}
-                    className="text-xs text-primary font-medium hover:underline"
-                  >
-                    + Add Field
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {editor.fieldDefinitions.map((field, idx) => (
-                    <div key={field.key} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                      {/* Label */}
-                      <input
-                        type="text"
-                        value={field.label}
-                        onChange={(e) => updateField(idx, { label: e.target.value })}
-                        placeholder="Field label"
-                        className="input flex-1 text-sm"
-                      />
-
-                      {/* Type */}
-                      <select
-                        value={field.type}
-                        onChange={(e) => updateField(idx, { type: e.target.value as FieldType })}
-                        className="input text-sm w-32"
-                      >
-                        {FIELD_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-
-                      {/* Required */}
-                      <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={field.required}
-                          onChange={(e) => updateField(idx, { required: e.target.checked })}
-                          className="rounded"
-                        />
-                        Req.
-                      </label>
-
-                      {/* Remove */}
-                      <button
-                        onClick={() => removeField(idx)}
-                        disabled={editor.fieldDefinitions.length === 1}
-                        className="text-gray-300 hover:text-red-400 disabled:opacity-30 text-lg leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={closeModal} className="text-sm text-gray-500 hover:text-gray-700 font-medium">
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !editor.name.trim() || !editor.slug.trim()}
-                className="btn-primary"
-              >
-                {saving ? 'Saving...' : editingForm ? 'Save Changes' : 'Create Form'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <p className="text-xs text-gray-400">
+        "Replace PDF" uploads a new template. In-progress counselor sessions are not affected — they will export using the version that was active when they started.
+      </p>
     </div>
   );
 }

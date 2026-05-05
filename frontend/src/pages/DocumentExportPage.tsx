@@ -1,39 +1,68 @@
 /**
  * pages/DocumentExportPage.tsx
- * Fetches session data, generates one PDF per completed form via pdfService,
- * triggers browser downloads, then records the export in the backend.
+ * Generates PDFs from all completed forms and uploads them to SharePoint.
+ *
+ * Flow:
+ *   1. Fetch the session (field values already saved during form completion)
+ *   2. For each completed form, generate a PDF with pdf-lib (signatures embedded)
+ *   3. Encode PDF as base64 and POST to the backend
+ *   4. Backend writes the file to the per-patient SharePoint subfolder
+ *   5. Navigate to MethaSoft linking step
+ *
  * Owner: Anthony (PDF logic) / Dennise (UI)
  */
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { sessionsApi } from '@/services/api';
-import { generateFormPdf, getPdfFilename, downloadPdf } from '@/services/pdfService';
-import type { IntakeSession, FormFieldValue } from '@/types';
+import { generateFormPdf } from '@/services/pdfService';
 
 export default function DocumentExportPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [isExporting, setIsExporting] = useState(false);
   const [exported, setExported] = useState(false);
+  const [progress, setProgress] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = async () => {
     setIsExporting(true);
+    setExportError(null);
+
     try {
-      const { data: session } = await sessionsApi.get(sessionId!) as { data: IntakeSession };
+      // Step 1: Load the full session — field values were saved by auto-save
+      setProgress('Loading form data…');
+      const { data: session } = await sessionsApi.get(sessionId!);
 
-      for (const sessionForm of session.sessionForms) {
+      const completedForms = (session.sessionForms ?? []).filter(
+        (sf: any) => sf.status === 'COMPLETED',
+      );
+
+      if (completedForms.length === 0) {
+        setExportError('No completed forms found. Please finish all required forms before exporting.');
+        return;
+      }
+
+      // Step 2 & 3: Generate and upload each form PDF
+      for (let i = 0; i < completedForms.length; i++) {
+        const sessionForm = completedForms[i];
+        const formName: string = sessionForm.formTemplate.name;
+
+        setProgress(`Generating PDF ${i + 1} of ${completedForms.length}: ${formName}…`);
+
+        // Flatten the fieldValues array into a plain object { fieldKey: value }
         const fieldValues: Record<string, string> = {};
-        const signatureDataUrls: Record<string, string> = {};
-
-        for (const fv of (sessionForm.fieldValues ?? []) as FormFieldValue[]) {
-          if (fv.fieldValue.startsWith('data:image/')) {
-            signatureDataUrls[fv.fieldKey] = fv.fieldValue;
-          } else {
-            fieldValues[fv.fieldKey] = fv.fieldValue;
-          }
+        for (const fv of sessionForm.fieldValues ?? []) {
+          fieldValues[fv.fieldKey] = fv.fieldValue;
         }
 
+        // Signature fields are any value that is a PNG data URL — detected automatically
+        const signatureDataUrls: Record<string, string> = {};
+        for (const [key, value] of Object.entries(fieldValues)) {
+          if (value?.startsWith('data:image/')) signatureDataUrls[key] = value;
+        }
+
+        // Generate the PDF — fills the real CareLink template, falls back to layout PDF
         const pdfBytes = await generateFormPdf({
           patientIdString: session.patientIdString,
           sessionCode: session.sessionCode,
@@ -42,16 +71,25 @@ export default function DocumentExportPage() {
           signatureDataUrls,
         });
 
-        downloadPdf(pdfBytes, getPdfFilename(session.patientIdString, sessionForm.formTemplate.name));
+        // Encode to base64 — use a loop instead of spread to avoid stack overflow
+        // on large buffers (spread with Uint8Array can exhaust the call stack)
+        let binary = '';
+        for (let b = 0; b < pdfBytes.length; b++) {
+          binary += String.fromCharCode(pdfBytes[b]);
+        }
+        const pdfBase64 = btoa(binary);
+
+        setProgress(`Uploading ${formName} to SharePoint…`);
+        await sessionsApi.exportPdf(sessionId!, session.patientIdString, formName, pdfBase64);
       }
 
-      const exportPath = `/secure/carelink/intake-forms/${session.sessionCode}/`;
-      await sessionsApi.recordExport(sessionId!, exportPath);
       setExported(true);
-    } catch {
-      alert('Export failed. Please try again.');
+    } catch (err: any) {
+      const message = err?.response?.data?.error ?? 'Export failed. Please try again.';
+      setExportError(message);
     } finally {
       setIsExporting(false);
+      setProgress('');
     }
   };
 
@@ -77,7 +115,9 @@ export default function DocumentExportPage() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-gray-900">Export Complete!</h2>
-            <p className="text-sm text-gray-400 mt-2">All forms have been successfully exported</p>
+            <p className="text-sm text-gray-400 mt-2">
+              All forms have been saved to the secure SharePoint folder
+            </p>
             <button
               onClick={() => navigate(`/intake/${sessionId}/methasoft`)}
               className="btn-primary mt-8"
@@ -97,12 +137,21 @@ export default function DocumentExportPage() {
             <p className="text-sm text-gray-400 mt-2 max-w-sm">
               All forms are complete. Click below to generate PDFs and save them to the secure SharePoint location.
             </p>
+
+            {exportError && (
+              <p className="mt-4 text-sm text-red-600 font-medium max-w-sm">{exportError}</p>
+            )}
+
+            {isExporting && progress && (
+              <p className="mt-4 text-sm text-gray-500 animate-pulse">{progress}</p>
+            )}
+
             <button
               onClick={handleExport}
               disabled={isExporting}
               className="btn-primary mt-8"
             >
-              {isExporting ? 'Exporting...' : 'Export All Forms'}
+              {isExporting ? 'Exporting…' : 'Export All Forms'}
             </button>
           </>
         )}

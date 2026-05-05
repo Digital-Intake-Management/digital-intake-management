@@ -98,7 +98,8 @@ model FormTemplate {
   name             String   // e.g. "Assessment Disclosure"
   slug             String   @unique // e.g. "assessment-disclosure"
   description      String?
-  fieldDefinitions Json     @map("field_definitions") // Array of field configs
+  fieldDefinitions Json     @map("field_definitions") // Array of field configs (legacy; PDF fields now read from pdfPath)
+  pdfPath          String?  @map("pdf_path")          // Filename in backend/public/forms/
   isActive         Boolean  @default(true) @map("is_active")
   sortOrder        Int      @default(0) @map("sort_order")
   createdAt        DateTime @default(now()) @map("created_at")

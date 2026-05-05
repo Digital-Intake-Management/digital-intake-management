@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { prisma } from '../config/database';
 import { authenticate } from '../middleware/authenticate';
 import { validate } from '../middleware/validate';
+import { uploadToSharePoint } from '../services/sharepoint';
 
 export const sessionsRouter = Router();
 sessionsRouter.use(authenticate);
@@ -172,13 +173,29 @@ sessionsRouter.patch('/:id/forms/:formId/complete', async (req: Request, res: Re
 });
 
 // ── POST /api/sessions/:id/export ─────────────────────────────────────────────
-// Record that PDFs were exported to SharePoint
+// Receive a completed form PDF from the frontend, write it to the SharePoint
+// folder, and record the file path in the database.
+//
+// Body: { patientIdString: string, formName: string, pdfBase64: string }
+// The PDF is sent as a base64-encoded string so the request stays JSON.
 sessionsRouter.post('/:id/export', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { exportPath } = req.body;
+    const { patientIdString, formName, pdfBase64 } = req.body;
     const performedById = (req as any).user.userId;
 
+    if (!patientIdString || !formName || !pdfBase64) {
+      return res.status(400).json({ error: 'patientIdString, formName, and pdfBase64 are required' });
+    }
+
+    // Decode the base64 PDF back into raw bytes
+    const pdfBytes = Buffer.from(pdfBase64, 'base64');
+
+    // Write to the SharePoint folder (creates per-patient subfolder automatically)
+    const exportPath = await uploadToSharePoint(pdfBytes, patientIdString, formName);
+
+    // Record the export path — subsequent uploads for the same session overwrite
+    // this with the last path, but each upload is individually logged below
     await prisma.intakeSession.update({
       where: { id },
       data: { pdfExportPath: exportPath },
@@ -189,13 +206,14 @@ sessionsRouter.post('/:id/export', async (req: Request, res: Response) => {
         sessionId: id,
         action: 'PDF_EXPORTED',
         performedById,
-        metadata: { exportPath },
+        metadata: { formName, exportPath },
       },
     });
 
-    return res.json({ message: 'Export recorded' });
-  } catch {
-    return res.status(500).json({ error: 'Failed to record export' });
+    return res.json({ exportPath });
+  } catch (err) {
+    console.error('SharePoint export failed:', err);
+    return res.status(500).json({ error: 'Failed to export PDF to SharePoint' });
   }
 });
 

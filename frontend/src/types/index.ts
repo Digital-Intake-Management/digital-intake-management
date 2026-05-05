@@ -58,6 +58,7 @@ export interface FormTemplate {
   slug: string;
   description: string | null;
   fieldDefinitions: FieldDefinition[];
+  pdfPath: string | null;
   isActive: boolean;
   sortOrder: number;
 }
